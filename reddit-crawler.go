@@ -4,17 +4,12 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"github.com/vartanbeno/go-reddit/v2/reddit"
 )
 var credentials_path = "./credentials.json"
-type Credentials struct{
-	Username string
-	Password string
-	Id string
-	Secret string
-}
 
 //Reads the json file containing the bots credentials for authentification in order to access the Reddit API
-func (credentials *Credentials) ReadCredentials(){
+func SetCredentials(credentials *reddit.Credentials){
 	content, err := ioutil.ReadFile(credentials_path)
 	if err != nil{
 		log.Fatal("Error while reading credentials", err)
@@ -23,10 +18,15 @@ func (credentials *Credentials) ReadCredentials(){
 	if err != nil{
 		log.Fatal("Error during Unmarshal()", err)
 	}
-	//log.Printf("Username: %v, Password: %v,Id: %v, Secret: %v", credentials.Username, credentials.Password, credentials.Id, credentials.Secret)
+	//log.Printf("Username: %v, Password: %v,Id: %v, Secret: %v", credentials.Username, credentials.Password, credentials.ID, credentials.Secret)
 
 }
 func main(){
-	var credentials Credentials
-	credentials.ReadCredentials()
+	var credentials reddit.Credentials
+	SetCredentials(&credentials)
+	// reddit_credentials := reddit.Credentials{ID: credentials.ID, 
+	// 								Secret: credentials.Secret,
+	// 								Username: credentials.Username,
+	// 								Password: credentials.Password}
+	//client, _ := reddit.NewClient(credentials)							
 }
