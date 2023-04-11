@@ -76,7 +76,7 @@ func FindPostsCommentsScheduler(posts *[]*reddit.Post, post_service *reddit.Post
 //Check for the trigger word in the comments of a post
 func CheckTriggerWord(trigger_words *[]string, post_and_comments *reddit.PostAndComments, channel chan *CommentIDAndQuestion, wait *sync.WaitGroup){
 	defer wait.Done()
-	comment_id_and_question := CommentIDAndQuestion{comment_ID: "", question: ""}
+	queried_comment := CommentIDAndQuestion{comment_ID: "", question: ""}
  	//Convert the comment body to lower case then compare the result to our trigger words
 	for _, comment := range post_and_comments.Comments{
 		comment_body_lower_case := strings.ToLower(comment.Body)
@@ -87,17 +87,16 @@ func CheckTriggerWord(trigger_words *[]string, post_and_comments *reddit.PostAnd
 				//"!sijui  how to eat cake  " -> "how to eat cake"
 				question := strings.TrimSpace(comment.Body[idx+len(trigger_word):])
 				if len(question) > 0{
-					comment_id_and_question.comment_ID = comment.FullID
-					comment_id_and_question.question = question
-					log.Println(comment_id_and_question.comment_ID)
+					queried_comment.comment_ID = comment.FullID
+					queried_comment.question = question
 					log.Println("Triggered")
+					channel <- &queried_comment
 				}
 				break
 			}
 		}
 			
 		}
-	channel <- &comment_id_and_question
 	}
 	 
 
