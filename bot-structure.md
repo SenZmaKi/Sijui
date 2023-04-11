@@ -7,6 +7,8 @@ Reddit Crawler - crawls through a specifc subreddit in a specific order for a co
     - Post order*
     - Comment order*
     - Command keyword*
+    - Ignore posts whose number of comments haven't changed since the last run **
+    - ignore comments that have already been replied to **
     - returns prompt_comment*
 
 
