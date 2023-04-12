@@ -111,16 +111,21 @@ func FindPostComments(post *reddit.Post, post_service *reddit.PostService, chann
 
 //Schedules go routines that find all the comments from various posts
 func FindPostsCommentsScheduler(posts *[]*reddit.Post, post_service *reddit.PostService)*[]*reddit.PostAndComments{
-	channel := make(chan *reddit.PostAndComments, len(*posts))
+	channel := make(chan *reddit.PostAndComments)
 	posts_and_comments := make([]*reddit.PostAndComments, len(*posts))
 	wait := &sync.WaitGroup{}
+	mutex := sync.Mutex{}
 	log.Printf("Finding comments to %v posts.. .", len(*posts))
 	for _, post := range *posts{
 		go FindPostComments(post, post_service, channel, wait)
+		mutex.Lock()
 		wait.Add(1)
+		mutex.Unlock()
 	}
-	wait.Wait()
-	close(channel)
+	go func(){
+		defer close(channel)
+		wait.Wait()
+	}()
 	index := 0
 	for post_and_comment := range channel{
 		posts_and_comments[index] = post_and_comment
@@ -129,28 +134,45 @@ func FindPostsCommentsScheduler(posts *[]*reddit.Post, post_service *reddit.Post
 	return &posts_and_comments
 }
 
+//Recursively checks if the trigger was called on a comment or on it's replies
+func trigger_check(trigger_words*[]string, comment *reddit.Comment, channel chan *CommentIDAndQuestion, wait *sync.WaitGroup, mutex *sync.Mutex){
+	defer wait.Done()
+	queried_comment := CommentIDAndQuestion{comment_ID: "", question: ""}
+	comment_body_lower_case := strings.ToLower(comment.Body)
+	for _, trigger_word := range *trigger_words{
+		idx := strings.Index(comment_body_lower_case, trigger_word)
+		if idx!=-1{
+			//Remove the leading or trailing whitespaces that come after the trigger word then return the question e.g
+			//"!sijui  how to eat cake  " -> "how to eat cake"
+			question := strings.TrimSpace(comment.Body[idx+len(trigger_word):])
+			if len(question) > 0{
+				queried_comment.comment_ID = comment.FullID
+				queried_comment.question = question
+				log.Println("Triggered")
+				channel <- &queried_comment
+			}
+			break
+		}
+	}
+	if len(comment.Replies.Comments) > 0{
+		for index := range comment.Replies.Comments{
+			mutex.Lock()
+			wait.Add(1)
+			mutex.Unlock()
+			trigger_check(trigger_words, comment.Replies.Comments[index], channel, wait, mutex)
+		}
+	}
+}
+
 //Check for the trigger word in the comments of a post
-func CheckTriggerWord(trigger_words *[]string, post_and_comments *reddit.PostAndComments, channel chan *CommentIDAndQuestion, wait *sync.WaitGroup){
+func CheckTriggerWord(trigger_words *[]string, post_and_comments *reddit.PostAndComments, channel chan *CommentIDAndQuestion, wait *sync.WaitGroup, mutex *sync.Mutex){
 	defer wait.Done()
 	//Convert the comment body to lower case then compare the result to our trigger words
 	for _, comment := range post_and_comments.Comments{
-		queried_comment := CommentIDAndQuestion{comment_ID: "", question: ""}
-		comment_body_lower_case := strings.ToLower(comment.Body)
-		for _, trigger_word := range *trigger_words{
-			idx := strings.Index(comment_body_lower_case, trigger_word)
-			if idx!=-1{
-				//Remove the leading or trailing whitespaces that come after the trigger word then return the question e.g
-				//"!sijui  how to eat cake  " -> "how to eat cake"
-				question := strings.TrimSpace(comment.Body[idx+len(trigger_word):])
-				if len(question) > 0{
-					queried_comment.comment_ID = comment.FullID
-					queried_comment.question = question
-					log.Println("Triggered")
-					channel <- &queried_comment
-				}
-				break
-			}
-		}
+		mutex.Lock()
+		wait.Add(1)
+		mutex.Unlock()
+		go trigger_check(trigger_words, comment, channel, wait, mutex)
 			
 		}
 	}
@@ -159,15 +181,21 @@ func CheckTriggerWord(trigger_words *[]string, post_and_comments *reddit.PostAnd
 //Schedules go routines to check for the trigger word in the comments to posts(many)
 func CheckTriggerWordScheduler(trigger_words *[]string, posts_and_comments *[]*reddit.PostAndComments)*[]*CommentIDAndQuestion{
 	wait := sync.WaitGroup{}
+	mutex := sync.Mutex{}
 	channel := make(chan *CommentIDAndQuestion, len(*posts_and_comments))
 	queried_comments := make([]*CommentIDAndQuestion, 0, 10)
 	log.Println("Checking for trigger word in comments to the posts")
 	for _, post_and_comments := range *posts_and_comments{
-		go CheckTriggerWord(trigger_words, post_and_comments, channel, &wait)
+		go CheckTriggerWord(trigger_words, post_and_comments, channel, &wait, &mutex)
+		mutex.Lock()
 		wait.Add(1)
+		mutex.Unlock()
 	}
-	wait.Wait()
-	close(channel)
+	go func(){
+		defer close(channel)
+		wait.Wait()
+
+	}()
 	for queried_comment := range channel{
 		queried_comments = append(queried_comments, queried_comment)
 	}
@@ -194,12 +222,14 @@ func main(){
 	}
 	posts = CheckIfPostsHaveNewComments(&post_and_number_of_comments_map, &posts)
 	CreatePostsNumberOfCommentsJSON(&post_and_number_of_comments_map, &post_and_number_of_comments_JSON_path, &posts)
-	// posts, _, err := client.Subreddit.TopPosts(context.Background(), subreddit, &post_options)
+	//posts, _, err := client.Subreddit.TopPosts(context.Background(), subreddit, &post_options)
 	post_service := client.Post
-	comment_service := client.Comment
+	//comment_service := client.Comment
 	posts_and_comments := FindPostsCommentsScheduler(&posts, post_service)
 	queried_comments := CheckTriggerWordScheduler(&trigger_words, posts_and_comments)
-	log.Println(len(*queried_comments))
-	TestReply(queried_comments, comment_service)
+	for _, queried_comment := range *queried_comments{
+		log.Println(queried_comment.question)
+	}
+	//TestReply(queried_comments, comment_service)
 	
 }
