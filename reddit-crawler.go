@@ -47,8 +47,8 @@ func SetUpClient(credentials *reddit.Credentials) *reddit.Client{
 	return client
 
 }
-func CheckIfPostsNumberOfCommentsJSONExists(posts_comment_count_path *string)bool{
-	if _, err := os.Stat(*posts_comment_count_path); err == nil{
+func CheckIfPostsNumberOfCommentsJSONExists(postAndNumberOfCommentsJsonPath *string)bool{
+	if _, err := os.Stat(*postAndNumberOfCommentsJsonPath); err == nil{
 		return true
 	}else{return false}
 }
@@ -63,8 +63,32 @@ func CreatePostsNumberOfCommentsJSON(postAndNumberOfCommentsMap *map[string]int,
 	defer file.Close()	
 	//Store the map to the created JSON file
 	encoder := json.NewEncoder(file)
-	if err := encoder.Encode(postAndNumberOfCommentsMap); err != nil{ log.Fatal("Error storing values to the JSON ", err)}
+	if err := encoder.Encode(postAndNumberOfCommentsMap); err != nil{ log.Println("Error writing values read from map to the JSON ", err)}
 }
+
+func UpdateJSONWithMap(postAndNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string){
+	//Using Create instead of OpenFIle might result to undefinded behaviour for cases where you want to specifically open the file for writing and not create it if it doesn't exist
+	if file, err := os.Create(*postAndNumberOfCommentsJsonPath); err!=nil{
+		log.Println("Error opening JSON in attempt to update JSON with the new(changed) post and number of comments read from map ", err)
+	}else{
+		defer file.Close()
+		encoder := json.NewEncoder(file)
+		if err := encoder.Encode(postAndNumberOfCommentsMap); err != nil{log.Println("Error updating JSON with the new post and number of comments read from map ", err)}
+	}
+	
+}
+
+func WriteJsonToPostsNumberOFCommentsMap(postsNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string){
+		if file, err := os.Open(*postAndNumberOfCommentsJsonPath); err!=nil{
+			log.Println("Error while opening the JSON file in an attempt to write JSON to map ", err)
+		}else{
+			defer file.Close()
+			decoder := json.NewDecoder(file)
+			if err := decoder.Decode(postsNumberOfCommentsMap); err != nil{log.Println("Error writing values read from from JSON to map ", err)}
+		}
+		
+	}
+
 
 func CheckIfPostsHaveNewComments(postAndNumberOfCommentsMap *map[string]int, posts *[]*reddit.Post) []*reddit.Post{
 	changed_posts := make([]*reddit.Post, 0, len(*posts))
@@ -81,6 +105,8 @@ func CheckIfPostsHaveNewComments(postAndNumberOfCommentsMap *map[string]int, pos
 				}else if post.NumberOfComments < (*postAndNumberOfCommentsMap)[post.FullID]{
 					//Change to the new reduced number of comments
 					(*postAndNumberOfCommentsMap)[post.FullID] = post.NumberOfComments
+					//add the post to the posts to be checked for the trigger word
+					changed_posts = append(changed_posts, post)
 				}
 				//update the accessed keys
 				accessed_keys[post.FullID] = true
@@ -90,7 +116,7 @@ func CheckIfPostsHaveNewComments(postAndNumberOfCommentsMap *map[string]int, pos
 			(*postAndNumberOfCommentsMap)[post.FullID] = post.NumberOfComments
 		}
 	}
-	//Remove the keys we didn't access, we assume the post has turned old since it was returned by client.Subreddit.NewPosts()
+	//Remove the keys we didn't access, we assume the post has turned old since it was NOT returned by client.Subreddit.NewPosts()
 	for _, post := range *posts{
 		if _, ok := accessed_keys[post.FullID]; !ok{
 			delete(*postAndNumberOfCommentsMap, post.FullID)
@@ -98,6 +124,7 @@ func CheckIfPostsHaveNewComments(postAndNumberOfCommentsMap *map[string]int, pos
 	}
 	return changed_posts
 }
+
 
 //Finds and returns the all comments to a post
 func FindPostComments(post *reddit.Post, postService *reddit.PostService, channel chan *reddit.PostAndComments, wait *sync.WaitGroup){
@@ -215,13 +242,17 @@ func main(){
 	client := SetUpClient(&credentials)
 	posts, _, err:= client.Subreddit.NewPosts(context.Background(), subreddit, &postOptions)
 	if err != nil{log.Fatal("Error while getting posts ", err)}
-	log.Printf("ID %v", posts[0].FullID)
-	log.Printf("Number Comments %v", posts[0].NumberOfComments)
+	//log.Printf("ID %v", posts[0].FullID)
+	//log.Printf("Number Comments %v", posts[0].NumberOfComments)
 	if !CheckIfPostsNumberOfCommentsJSONExists(&postAndNumberOfCommentsJsonPath){
 		CreatePostsNumberOfCommentsJSON(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath, &posts)
 	}
+	//Read from the stored json and map the values to the map
+	WriteJsonToPostsNumberOFCommentsMap(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath)
 	posts = CheckIfPostsHaveNewComments(&postAndNumberOfCommentsMap, &posts)
-	CreatePostsNumberOfCommentsJSON(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath, &posts)
+	//Update the json with the changed posts
+	UpdateJSONWithMap(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath)
+	//CreatePostsNumberOfCommentsJSON(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath, &posts)
 	//posts, _, err := client.Subreddit.TopPosts(context.Background(), subreddit, &postOptions)
 	postService := client.Post
 	//comment_service := client.Comment
