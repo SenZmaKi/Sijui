@@ -11,13 +11,12 @@ import (
 )
 var (credentialsPath = "./credentials.json"
 	postAndNumberOfCommentsJsonPath = "./posts_comment_count.json"
-	repliedCommentsPath = "./replied_comments.json"
 	subreddit = "kenya"
+	botUsername = "Sijui-bot"
 	//postOptions = reddit.ListPostOptions{ ListOptions: reddit.ListOptions{Limit: 100}, Time:"day"}
 	postOptions = reddit.ListOptions{Limit: 100}
-	triggerWords = []string{"!sijui-bot", "sijui-bot", "!sijui"}
+	triggerWords = []string{"!sijui-bot", "sijui-bot", "!sijui", "u/sijui-bot"}
 	postAndNumberOfCommentsMap = make(map[string]int)
-	repliedCommentsMap = make(map[string]bool)
 	)
 
 // type CommentIDAndQuestion struct{
@@ -114,7 +113,6 @@ func FindPostsThatHaveHaveNewComments(postAndNumberOfCommentsMap *map[string]int
 				}
 		}else{
 			//If we dont find the post in our map then we add it ti the posts to be checked for the trigger word and add it our map
-			println(post.Title, " ", post.NumberOfComments)
 			changedPosts = append(changedPosts, post)
 			(*postAndNumberOfCommentsMap)[post.FullID] = post.NumberOfComments
 		}
@@ -122,7 +120,6 @@ func FindPostsThatHaveHaveNewComments(postAndNumberOfCommentsMap *map[string]int
 	//Remove the keys we didn't access, we assume the post has turned old since it was NOT returned by client.Subreddit.NewPosts()
 	for key := range *postAndNumberOfCommentsMap{
 		if _, ok := accessedKeys[key]; !ok{
-			println("Deleted")
 			delete(*postAndNumberOfCommentsMap, key)
 		}
 	}
@@ -165,6 +162,13 @@ func FindPostsCommentsScheduler(posts *[]*reddit.Post, postService *reddit.PostS
 	return &postsAndComments
 }
 
+func checkIfBotReplied(replies *[]*reddit.Comment)bool{
+	for _, reply := range *replies{
+		if reply.Author == botUsername{return true}
+	}
+	return false
+}
+
 //Recursively checks if the trigger was called on a comment or on it's replies
 func trigger_check(triggerWords*[]string, comment *reddit.Comment, channel chan *map[string]string, wait *sync.WaitGroup, mutex *sync.Mutex){
 	defer wait.Done()
@@ -172,18 +176,21 @@ func trigger_check(triggerWords*[]string, comment *reddit.Comment, channel chan 
 	commentBodyLowerCase := strings.ToLower(comment.Body)
 	for _, trigger_word := range *triggerWords{
 		idx := strings.Index(commentBodyLowerCase, trigger_word)
-		if idx!=-1{
-			//Remove the leading or trailing whitespaces that come after the trigger word then return the question e.g
-			//"!sijui  how to eat cake  " -> "how to eat cake"
-			question := strings.TrimSpace(comment.Body[idx+len(trigger_word):])
-			if len(question) > 0{
-				queriedComment[comment.FullID] = question
-				log.Println("Triggered")
-				channel <- &queriedComment
+			if idx!=-1{
+				//Remove the leading or trailing whitespaces that come after the trigger word then return the question e.g
+				//"!sijui  how to eat cake  " -> "how to eat cake"
+				question := strings.TrimSpace(comment.Body[idx+len(trigger_word):])
+				if len(question) > 0{
+					//First check if our bot has replied to the comment
+					if !checkIfBotReplied(&(comment.Replies.Comments)){
+						queriedComment[comment.FullID] = question
+						channel <- &queriedComment
+					}
+				}
+				break
 			}
-			break
+
 		}
-	}
 		for index := range comment.Replies.Comments{
 			mutex.Lock()
 			wait.Add(1)
@@ -191,6 +198,7 @@ func trigger_check(triggerWords*[]string, comment *reddit.Comment, channel chan 
 			trigger_check(triggerWords, comment.Replies.Comments[index], channel, wait, mutex)
 		}
 	}
+	
 
 
 //Check for the trigger word in the comments of a post
@@ -232,53 +240,11 @@ func CheckTriggerWordScheduler(triggerWords *[]string, postsAndComments *[]*redd
 	}
 	return &queriedComments
 }
-// func CheckIfRepliedCommentsJSONExists(repliedCommentsPath *string) bool{
-// 	if _, err:= os.Stat(*repliedCommentsPath); err!=nil{return false}
-// 	return true
-// }
-func UpdateRepliedCommentsJSON(repliedCommentsPath *string, queriedComments *map[string]string){
-	if file, err := os.Create(*repliedCommentsPath); err!=nil{
-		log.Println("Error opening replied comments JSON file ", err)
-	}else{
-		defer file.Close()
-		encoder := json.NewEncoder(file)
-		if err := encoder.Encode(queriedComments); err!=nil{log.Println("Error writing comment to repliedComments JSON file ", err)}
-	}
-
-}
-
-func LookForUnrepliedComments(repliedCommentsPath *string, queriedComments *map[string]string)*map[string]string{
-	repliedCommentsMap := make(map[string]string)
-	unrepliedComments := make(map[string]string)
-	accessedKeys := make(map[string]bool)
-	if file, err := os.Create(*repliedCommentsPath); err!=nil{
-		log.Println("Error opening replied comments JSON file ", err)
-	}else{
-		defer file.Close()
-		decoder := json.NewDecoder(file)
-		if err := decoder.Decode(&repliedCommentsMap); err!=nil{log.Println("Error reading comment from repliedCommentsJSON to write to repliedCommentsMap ", err)}
-		for key, value := range *queriedComments{
-			if _, ok := repliedCommentsMap[key]; !ok{
-				unrepliedComments[key] = value
-				accessedKeys[key] = true
-			}else{
-				accessedKeys[key] = true
-			}
-		}
-		for key := range *queriedComments{
-			if _, ok := accessedKeys[key]; !ok{
-				delete(repliedCommentsMap, key)
-			}
-		}
-	}
-	return &unrepliedComments
-	
-}
 
 func TestReply(unrepliedComments *map[string]string, comment_sevice *reddit.CommentService){
 	reply := "Konichiwa master"
 	for commentID, question := range *unrepliedComments{
-		log.Println("Replyiing .. .")
+		log.Println("Replyiing.. .")
 		comment_sevice.Submit(context.Background(), commentID, reply)
 		log.Println(question)
 		}
@@ -302,12 +268,9 @@ func main(){
 	//CreatePostsNumberOfCommentsJSON(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath, &posts)
 	//posts, _, err := client.Subreddit.TopPosts(context.Background(), subreddit, &postOptions)
 	postService := client.Post
-	//comment_service := client.Comment
+	comment_service := client.Comment
 	postsAndComments := FindPostsCommentsScheduler(&posts, postService)
 	queriedComments := CheckTriggerWordScheduler(&triggerWords, postsAndComments)
-	for commentID, question := range *queriedComments{
-		log.Println(commentID, ": ", question)
-	}
-	//TestReply(queriedComments, comment_service)
+	TestReply(queriedComments, comment_service)
 	
 }
