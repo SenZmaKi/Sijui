@@ -11,20 +11,22 @@ import (
 )
 var (credentialsPath = "./credentials.json"
 	postAndNumberOfCommentsJsonPath = "./posts_comment_count.json"
+	repliedCommentsPath = "./replied_comments.json"
 	subreddit = "kenya"
 	//postOptions = reddit.ListPostOptions{ ListOptions: reddit.ListOptions{Limit: 100}, Time:"day"}
 	postOptions = reddit.ListOptions{Limit: 100}
 	triggerWords = []string{"!sijui-bot", "sijui-bot", "!sijui"}
 	postAndNumberOfCommentsMap = make(map[string]int)
+	repliedCommentsMap = make(map[string]bool)
 	)
 
-type CommentIDAndQuestion struct{
-	commentID string
-	question string
-}
+// type CommentIDAndQuestion struct{
+// 	commentID string
+// 	question string
+// }
 
 //Reads the json file containing the bots credentials for authentification in order to access the Reddit API
-func SetCredentials(credentials *reddit.Credentials){
+func SetCredentials(credentials *reddit.Credentials, credentialsPath string){
 	file, err := os.Open(credentialsPath)
 	if err != nil{
 		log.Fatal("Error while reading credentials", err)
@@ -66,7 +68,7 @@ func CreatePostsNumberOfCommentsJSON(postAndNumberOfCommentsMap *map[string]int,
 	if err := encoder.Encode(postAndNumberOfCommentsMap); err != nil{ log.Println("Error writing values read from map to the JSON ", err)}
 }
 
-func UpdateJSONWithMap(postAndNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string){
+func UpdateJSONWithPostsNumberOfCommentsMap(postAndNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string){
 	//Using Create instead of OpenFIle might result to undefinded behaviour for cases where you want to specifically open the file for writing and not create it if it doesn't exist
 	if file, err := os.Create(*postAndNumberOfCommentsJsonPath); err!=nil{
 		log.Println("Error opening JSON in attempt to update JSON with the new(changed) post and number of comments read from map ", err)
@@ -90,39 +92,41 @@ func WriteJsonToPostsNumberOFCommentsMap(postsNumberOfCommentsMap *map[string]in
 	}
 
 
-func CheckIfPostsHaveNewComments(postAndNumberOfCommentsMap *map[string]int, posts *[]*reddit.Post) []*reddit.Post{
-	changed_posts := make([]*reddit.Post, 0, len(*posts))
-	accessed_keys := make(map[string]bool)
+func FindPostsThatHaveHaveNewComments(postAndNumberOfCommentsMap *map[string]int, posts *[]*reddit.Post) []*reddit.Post{
+	changedPosts := make([]*reddit.Post, 0, len(*posts)/4)
+	accessedKeys := make(map[string]bool)
 	for _, post := range *posts{
+		//update the accessed keys
+		accessedKeys[post.FullID] = true
 		//If we have the post in our map
 		if _, ok := (*postAndNumberOfCommentsMap)[post.FullID]; ok{
 			//If the number of comments on the post have increased
 			if post.NumberOfComments > (*postAndNumberOfCommentsMap)[post.FullID]{
 				(*postAndNumberOfCommentsMap)[post.FullID] = post.NumberOfComments
 				//add the post to the posts to be checked for the trigger word
-				changed_posts = append(changed_posts, post)
+				changedPosts = append(changedPosts, post)
 				//if the number of comments on the post has reduced to handle edge cases where a user deletes a comment
 				}else if post.NumberOfComments < (*postAndNumberOfCommentsMap)[post.FullID]{
 					//Change to the new reduced number of comments
 					(*postAndNumberOfCommentsMap)[post.FullID] = post.NumberOfComments
 					//add the post to the posts to be checked for the trigger word
-					changed_posts = append(changed_posts, post)
+					changedPosts = append(changedPosts, post)
 				}
-				//update the accessed keys
-				accessed_keys[post.FullID] = true
 		}else{
-			//If we dont find the post in our map then we add it ot the posts to be checked for the trigger word and add it to the map
-			changed_posts = append(changed_posts, post)
+			//If we dont find the post in our map then we add it ti the posts to be checked for the trigger word and add it our map
+			println(post.Title, " ", post.NumberOfComments)
+			changedPosts = append(changedPosts, post)
 			(*postAndNumberOfCommentsMap)[post.FullID] = post.NumberOfComments
 		}
 	}
 	//Remove the keys we didn't access, we assume the post has turned old since it was NOT returned by client.Subreddit.NewPosts()
-	for _, post := range *posts{
-		if _, ok := accessed_keys[post.FullID]; !ok{
-			delete(*postAndNumberOfCommentsMap, post.FullID)
+	for key := range *postAndNumberOfCommentsMap{
+		if _, ok := accessedKeys[key]; !ok{
+			println("Deleted")
+			delete(*postAndNumberOfCommentsMap, key)
 		}
 	}
-	return changed_posts
+	return changedPosts
 }
 
 
@@ -162,9 +166,9 @@ func FindPostsCommentsScheduler(posts *[]*reddit.Post, postService *reddit.PostS
 }
 
 //Recursively checks if the trigger was called on a comment or on it's replies
-func trigger_check(triggerWords*[]string, comment *reddit.Comment, channel chan *CommentIDAndQuestion, wait *sync.WaitGroup, mutex *sync.Mutex){
+func trigger_check(triggerWords*[]string, comment *reddit.Comment, channel chan *map[string]string, wait *sync.WaitGroup, mutex *sync.Mutex){
 	defer wait.Done()
-	queried_comment := CommentIDAndQuestion{commentID: "", question: ""}
+	queriedComment := make(map[string]string)
 	commentBodyLowerCase := strings.ToLower(comment.Body)
 	for _, trigger_word := range *triggerWords{
 		idx := strings.Index(commentBodyLowerCase, trigger_word)
@@ -173,15 +177,13 @@ func trigger_check(triggerWords*[]string, comment *reddit.Comment, channel chan 
 			//"!sijui  how to eat cake  " -> "how to eat cake"
 			question := strings.TrimSpace(comment.Body[idx+len(trigger_word):])
 			if len(question) > 0{
-				queried_comment.commentID = comment.FullID
-				queried_comment.question = question
+				queriedComment[comment.FullID] = question
 				log.Println("Triggered")
-				channel <- &queried_comment
+				channel <- &queriedComment
 			}
 			break
 		}
 	}
-	if len(comment.Replies.Comments) > 0{
 		for index := range comment.Replies.Comments{
 			mutex.Lock()
 			wait.Add(1)
@@ -189,10 +191,10 @@ func trigger_check(triggerWords*[]string, comment *reddit.Comment, channel chan 
 			trigger_check(triggerWords, comment.Replies.Comments[index], channel, wait, mutex)
 		}
 	}
-}
+
 
 //Check for the trigger word in the comments of a post
-func CheckTriggerWord(triggerWords *[]string, postAndComments *reddit.PostAndComments, channel chan *CommentIDAndQuestion, wait *sync.WaitGroup, mutex *sync.Mutex){
+func CheckTriggerWord(triggerWords *[]string, postAndComments *reddit.PostAndComments, channel chan *map[string]string, wait *sync.WaitGroup, mutex *sync.Mutex){
 	defer wait.Done()
 	//Convert the comment body to lower case then compare the result to our trigger words
 	for _, comment := range postAndComments.Comments{
@@ -206,11 +208,11 @@ func CheckTriggerWord(triggerWords *[]string, postAndComments *reddit.PostAndCom
 	 
 
 //Schedules go routines to check for the trigger word in the comments to posts(many)
-func CheckTriggerWordScheduler(triggerWords *[]string, postsAndComments *[]*reddit.PostAndComments)*[]*CommentIDAndQuestion{
+func CheckTriggerWordScheduler(triggerWords *[]string, postsAndComments *[]*reddit.PostAndComments)*map[string]string{
 	wait := sync.WaitGroup{}
 	mutex := sync.Mutex{}
-	channel := make(chan *CommentIDAndQuestion, len(*postsAndComments))
-	queried_comments := make([]*CommentIDAndQuestion, 0, 10)
+	channel := make(chan *map[string]string, len(*postsAndComments))
+	queriedComments := make(map[string]string, 10)
 	log.Println("Checking for trigger word in comments to the posts")
 	for _, postAndComments := range *postsAndComments{
 		go CheckTriggerWord(triggerWords, postAndComments, channel, &wait, &mutex)
@@ -223,22 +225,67 @@ func CheckTriggerWordScheduler(triggerWords *[]string, postsAndComments *[]*redd
 		wait.Wait()
 
 	}()
-	for queried_comment := range channel{
-		queried_comments = append(queried_comments, queried_comment)
+	for queriedComment := range channel{
+		for key, value := range *queriedComment{
+			queriedComments[key] = value
+		}
 	}
-	return &queried_comments
+	return &queriedComments
 }
-func TestReply(queried_comments *[]*(CommentIDAndQuestion), comment_sevice *reddit.CommentService){
+// func CheckIfRepliedCommentsJSONExists(repliedCommentsPath *string) bool{
+// 	if _, err:= os.Stat(*repliedCommentsPath); err!=nil{return false}
+// 	return true
+// }
+func UpdateRepliedCommentsJSON(repliedCommentsPath *string, queriedComments *map[string]string){
+	if file, err := os.Create(*repliedCommentsPath); err!=nil{
+		log.Println("Error opening replied comments JSON file ", err)
+	}else{
+		defer file.Close()
+		encoder := json.NewEncoder(file)
+		if err := encoder.Encode(queriedComments); err!=nil{log.Println("Error writing comment to repliedComments JSON file ", err)}
+	}
+
+}
+
+func LookForUnrepliedComments(repliedCommentsPath *string, queriedComments *map[string]string)*map[string]string{
+	repliedCommentsMap := make(map[string]string)
+	unrepliedComments := make(map[string]string)
+	accessedKeys := make(map[string]bool)
+	if file, err := os.Create(*repliedCommentsPath); err!=nil{
+		log.Println("Error opening replied comments JSON file ", err)
+	}else{
+		defer file.Close()
+		decoder := json.NewDecoder(file)
+		if err := decoder.Decode(&repliedCommentsMap); err!=nil{log.Println("Error reading comment from repliedCommentsJSON to write to repliedCommentsMap ", err)}
+		for key, value := range *queriedComments{
+			if _, ok := repliedCommentsMap[key]; !ok{
+				unrepliedComments[key] = value
+				accessedKeys[key] = true
+			}else{
+				accessedKeys[key] = true
+			}
+		}
+		for key := range *queriedComments{
+			if _, ok := accessedKeys[key]; !ok{
+				delete(repliedCommentsMap, key)
+			}
+		}
+	}
+	return &unrepliedComments
+	
+}
+
+func TestReply(unrepliedComments *map[string]string, comment_sevice *reddit.CommentService){
 	reply := "Konichiwa master"
-	for _, queried_comment := range *queried_comments{
+	for commentID, question := range *unrepliedComments{
 		log.Println("Replyiing .. .")
-		comment_sevice.Submit(context.Background(), queried_comment.commentID, reply)
-		log.Println(queried_comment.question)
+		comment_sevice.Submit(context.Background(), commentID, reply)
+		log.Println(question)
 		}
 }
 func main(){
 	var credentials reddit.Credentials
-	SetCredentials(&credentials)
+	SetCredentials(&credentials, credentialsPath)
 	client := SetUpClient(&credentials)
 	posts, _, err:= client.Subreddit.NewPosts(context.Background(), subreddit, &postOptions)
 	if err != nil{log.Fatal("Error while getting posts ", err)}
@@ -249,18 +296,18 @@ func main(){
 	}
 	//Read from the stored json and map the values to the map
 	WriteJsonToPostsNumberOFCommentsMap(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath)
-	posts = CheckIfPostsHaveNewComments(&postAndNumberOfCommentsMap, &posts)
+	posts = FindPostsThatHaveHaveNewComments(&postAndNumberOfCommentsMap, &posts)
 	//Update the json with the changed posts
-	UpdateJSONWithMap(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath)
+	UpdateJSONWithPostsNumberOfCommentsMap(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath)
 	//CreatePostsNumberOfCommentsJSON(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath, &posts)
 	//posts, _, err := client.Subreddit.TopPosts(context.Background(), subreddit, &postOptions)
 	postService := client.Post
 	//comment_service := client.Comment
 	postsAndComments := FindPostsCommentsScheduler(&posts, postService)
-	queried_comments := CheckTriggerWordScheduler(&triggerWords, postsAndComments)
-	for _, queried_comment := range *queried_comments{
-		log.Println(queried_comment.question)
+	queriedComments := CheckTriggerWordScheduler(&triggerWords, postsAndComments)
+	for commentID, question := range *queriedComments{
+		log.Println(commentID, ": ", question)
 	}
-	//TestReply(queried_comments, comment_service)
+	//TestReply(queriedComments, comment_service)
 	
 }
