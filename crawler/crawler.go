@@ -25,22 +25,23 @@ var (credentialsPath = "./credentials.json"
 // }
 
 //Reads the json file containing the bots credentials for authentification in order to access the Reddit API
-func SetCredentials(credentials *reddit.Credentials, credentialsPath string){
-	file, err := os.Open(credentialsPath)
-	if err != nil{
-		log.Fatal("Error while reading credentials", err)
+func SetRedditCredentials(credentialsPath string)*reddit.Credentials{
+	credentials := &reddit.Credentials{}
+	if file, err := os.Open(credentialsPath); err!=nil{
+		log.Fatal("Error opening redditCredentials.json ", err)
+	}else{
+		defer file.Close()
+		if err := json.NewDecoder(file).Decode(credentials); err!=nil{
+			log.Fatal("Error decoding redditCredentials.json into redditCredentials map ", err)
+		}
 	}
-	defer file.Close()
-	err = json.NewDecoder(file).Decode(credentials)
-	if err != nil{
-		log.Fatal("Error during Unmarshal() ", err)
-	}
+	return credentials
 	//log.Printf("Username: %v, Password: %v,Id: %v, Secret: %v", credentials.Username, credentials.Password, credentials.ID, credentials.Secret)
 
 }
 
 //Sets up reddit API client using the provided credentials
-func SetUpClient(credentials *reddit.Credentials) *reddit.Client{
+func SetUpRedditClient(credentials *reddit.Credentials) *reddit.Client{
 	client, err := reddit.NewClient(*credentials)
 	if err != nil{
 		log.Fatal("Error while setting up client ", err)
