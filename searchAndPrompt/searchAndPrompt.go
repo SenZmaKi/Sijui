@@ -1,13 +1,15 @@
 package main
 
 import (
-//	"context"
+	"context"
 	"encoding/json"
 	"log"
 	"os"
 
-//	"encoding.json"
-//	"google.golang.org/api/customsearch/v1"
+	"google.golang.org/api/customsearch/v1"
+	"google.golang.org/api/option"
+	//	"encoding.json"
+	//	"google.golang.org/api/customsearch/v1"
 )
 
 var (
@@ -17,6 +19,11 @@ var (
 //unrepliedComments *map[string]string
 //                    commentID  question
 
+type GoogleResult struct{
+	Title  string;
+	Snippet string;
+	Link string;
+}
 
 func SetUpGoogleCredentials(credentialsPath *string)*map[string]string{
 	googleCredentials := make(map[string]string)
@@ -25,13 +32,39 @@ func SetUpGoogleCredentials(credentialsPath *string)*map[string]string{
 	}else{
 		decoder := json.NewDecoder(file)
 		if err := decoder.Decode(&googleCredentials); err!=nil{
-			log.Fatal("Error decoding googleCredentials.json into googleCredentials map", err)
+			log.Fatal("Error decoding googleCredentials.json into googleCredentials map ", err)
 		}
 	}
 	return &googleCredentials
 }
 
+func SetUpGoogleSearchService(credentials *map[string]string) *customsearch.CseListCall{
+	service, err := customsearch.NewService(context.Background(), option.WithAPIKey((*credentials)["CustomSearchAPIKey"]))
+	if err!=nil{log.Fatal("Error creating new custom search service ", err)}
+	return service.Cse.List().Cx((*credentials)["SearchEngineID"])
+}
+
+func GoogleSearch(query *string, searchService *customsearch.CseListCall)*[]GoogleResult{
+	results, err := searchService.Q(*query).Do()
+	if err!= nil{log.Println("Error fetching google search results ", err)}
+	resultItems := results.Items[:3]
+	googleResults := make([]GoogleResult, 3)
+	for idx := 0; idx < 3; idx++{
+		googleResults[idx].Title = resultItems[idx].Title
+		googleResults[idx].Snippet = resultItems[idx].Snippet
+		googleResults[idx].Link = resultItems[idx].Link
+	}
+	return &googleResults
+}
+
 func main(){
 	googleCredentials := SetUpGoogleCredentials(&googleCredentialsPath)
-	log.Print(googleCredentials)
+	searchService := SetUpGoogleSearchService(googleCredentials)
+	query := "How to shit"
+	googleResults := GoogleSearch(&query, searchService)
+	for _, googleResult := range *googleResults{
+		println("Title: ", googleResult.Title)
+		println("Snippet: ", googleResult.Snippet)
+		println("Link: ", googleResult.Link)
+	}
 }
