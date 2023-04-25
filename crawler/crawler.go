@@ -1,4 +1,4 @@
-package main
+package crawler
 
 import (
 	"context"
@@ -249,28 +249,28 @@ func TestReply(unrepliedComments *map[string]string, comment_sevice *reddit.Comm
 		log.Println(question)
 		}
 }
-func main(){
-	var credentials reddit.Credentials
-	SetCredentials(&credentials, credentialsPath)
-	client := SetUpClient(&credentials)
-	posts, _, err:= client.Subreddit.NewPosts(context.Background(), subreddit, &postOptions)
-	if err != nil{log.Fatal("Error while getting posts ", err)}
-	//log.Printf("ID %v", posts[0].FullID)
-	//log.Printf("Number Comments %v", posts[0].NumberOfComments)
-	if !CheckIfPostsNumberOfCommentsJSONExists(&postAndNumberOfCommentsJsonPath){
-		CreatePostsNumberOfCommentsJSON(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath, &posts)
-	}
-	//Read from the stored json and map the values to the map
-	WriteJsonToPostsNumberOFCommentsMap(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath)
-	posts = FindPostsThatHaveHaveNewComments(&postAndNumberOfCommentsMap, &posts)
-	//Update the json with the changed posts
-	UpdateJSONWithPostsNumberOfCommentsMap(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath)
-	//CreatePostsNumberOfCommentsJSON(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath, &posts)
-	//posts, _, err := client.Subreddit.TopPosts(context.Background(), subreddit, &postOptions)
-	postService := client.Post
-	comment_service := client.Comment
-	postsAndComments := FindPostsCommentsScheduler(&posts, postService)
-	queriedComments := CheckTriggerWordScheduler(&triggerWords, postsAndComments)
-	TestReply(queriedComments, comment_service)
+// func main(){
+// 	var credentials reddit.Credentials
+// 	SetCredentials(&credentials, credentialsPath)
+// 	client := SetUpClient(&credentials)
+// 	posts, _, err:= client.Subreddit.NewPosts(context.Background(), subreddit, &postOptions)
+// 	if err != nil{log.Fatal("Error while getting posts ", err)}
+// 	//log.Printf("ID %v", posts[0].FullID)
+// 	//log.Printf("Number Comments %v", posts[0].NumberOfComments)
+// 	if !CheckIfPostsNumberOfCommentsJSONExists(&postAndNumberOfCommentsJsonPath){
+// 		CreatePostsNumberOfCommentsJSON(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath, &posts)
+// 	}
+// 	//Read from the stored json and map the values to the map
+// 	WriteJsonToPostsNumberOFCommentsMap(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath)
+// 	posts = FindPostsThatHaveHaveNewComments(&postAndNumberOfCommentsMap, &posts)
+// 	//Update the json with the changed posts
+// 	UpdateJSONWithPostsNumberOfCommentsMap(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath)
+// 	//CreatePostsNumberOfCommentsJSON(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath, &posts)
+// 	//posts, _, err := client.Subreddit.TopPosts(context.Background(), subreddit, &postOptions)
+// 	postService := client.Post
+// 	comment_service := client.Comment
+// 	postsAndComments := FindPostsCommentsScheduler(&posts, postService)
+// 	queriedComments := CheckTriggerWordScheduler(&triggerWords, postsAndComments)
+// 	TestReply(queriedComments, comment_service)
 	
-}
+// }

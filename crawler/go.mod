@@ -1,4 +1,4 @@
-module reddit-crawler
+module crawler.go
 
 go 1.20
 
