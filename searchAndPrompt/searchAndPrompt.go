@@ -58,13 +58,13 @@ func GoogleSearch(query *string, searchService *customsearch.CseListCall)*[]Goog
 }
 
 func main(){
-	googleCredentials := SetUpGoogleCredentials(&googleCredentialsPath)
-	searchService := SetUpGoogleSearchService(googleCredentials)
-	query := "How to shit"
-	googleResults := GoogleSearch(&query, searchService)
-	for _, googleResult := range *googleResults{
-		println("Title: ", googleResult.Title)
-		println("Snippet: ", googleResult.Snippet)
-		println("Link: ", googleResult.Link)
-	}
+	// googleCredentials := SetUpGoogleCredentials(&googleCredentialsPath)
+	// searchService := SetUpGoogleSearchService(googleCredentials)
+	// query := "How to shit"
+	// googleResults := GoogleSearch(&query, searchService)
+	// for _, googleResult := range *googleResults{
+	// 	println("Title: ", googleResult.Title)
+	// 	println("Snippet: ", googleResult.Snippet)
+	// 	println("Link: ", googleResult.Link)
+	// }
 }
