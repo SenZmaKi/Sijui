@@ -3,37 +3,38 @@ package crawler
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"log"
-	"sync"
+	"os"
 	"strings"
+	"sync"
+
 	"github.com/vartanbeno/go-reddit/v2/reddit"
 )
 
-var (
-	credentialsPath = "./credentials.json"
-	postAndNumberOfCommentsJsonPath = "./posts_comment_count.json"
-	subreddit = "kenya"
-	botUsername = "Sijui-bot"
-	//postOptions = reddit.ListPostOptions{ ListOptions: reddit.ListOptions{Limit: 100}, Time:"day"}
-	postOptions = reddit.ListOptions{Limit: 100}
-	triggerWords = []string{"!sijui-bot", "sijui-bot", "!sijui", "u/sijui-bot"}
-	postAndNumberOfCommentsMap = make(map[string]int)
-	)
+// var (
+// 	credentialsPath = "./credentials.json"
+// 	postAndNumberOfCommentsJsonPath = "./posts_comment_count.json"
+// 	subreddit = "kenya"
+// 	botUsername = "Sijui-bot"
+// 	//postOptions = reddit.ListPostOptions{ ListOptions: reddit.ListOptions{Limit: 100}, Time:"day"}
+// 	postOptions = reddit.ListOptions{Limit: 100}
+// 	triggerWords = []string{"!sijui-bot", "sijui-bot", "!sijui", "u/sijui-bot"}
+// 	postAndNumberOfCommentsMap = make(map[string]int)
+// 	)
 
-// type CommentIDAndQuestion struct{
-// 	commentID string
-// 	question string
-// }
+type CommentIDAndQuestion struct{
+	commentID string
+	question string
+}
 
-//Reads the json file containing the bots credentials for authentification in order to access the Reddit API
-func SetRedditCredentials(credentialsPath string)*reddit.Credentials{
+// Reads the json file containing the bots credentials for authentification in order to access the Reddit API
+func SetRedditCredentials(credentialsPath string) *reddit.Credentials {
 	credentials := &reddit.Credentials{}
-	if file, err := os.Open(credentialsPath); err!=nil{
+	if file, err := os.Open(credentialsPath); err != nil {
 		log.Fatal("Error opening redditCredentials.json ", err)
-	}else{
+	} else {
 		defer file.Close()
-		if err := json.NewDecoder(file).Decode(credentials); err!=nil{
+		if err := json.NewDecoder(file).Decode(credentials); err != nil {
 			log.Fatal("Error decoding redditCredentials.json into redditCredentials map ", err)
 		}
 	}
@@ -42,215 +43,226 @@ func SetRedditCredentials(credentialsPath string)*reddit.Credentials{
 
 }
 
-//Sets up reddit API client using the provided credentials
-func SetUpRedditClient(credentials *reddit.Credentials) *reddit.Client{
+// Sets up reddit API client using the provided credentials
+func SetUpRedditClient(credentials *reddit.Credentials) *reddit.Client {
 	client, err := reddit.NewClient(*credentials)
-	if err != nil{
+	if err != nil {
 		log.Fatal("Error while setting up client ", err)
 	}
 	return client
 
 }
 
-func CheckIfPostsNumberOfCommentsJSONExists(postAndNumberOfCommentsJsonPath *string)bool{
-	if _, err := os.Stat(*postAndNumberOfCommentsJsonPath); err == nil{
+func CheckIfPostsNumberOfCommentsJSONExists(postAndNumberOfCommentsJsonPath *string) bool {
+	if _, err := os.Stat(*postAndNumberOfCommentsJsonPath); err == nil {
 		return true
-	}else{return false}
+	} else {
+		return false
+	}
 }
 
-func CreatePostsNumberOfCommentsJSON(postAndNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string, posts *[]*reddit.Post){
+func CreatePostsNumberOfCommentsJSON(postAndNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string, posts *[]*reddit.Post) {
 	//Create a new map and fill it with post IDs and the number of comments
-	for _, post := range *posts{
+	for _, post := range *posts {
 		(*postAndNumberOfCommentsMap)[post.FullID] = post.NumberOfComments
-	}	
+	}
 	//Create a JSON file to store the map
 	file, err := os.Create(*postAndNumberOfCommentsJsonPath)
-	if err != nil{log.Fatal("Error creating the posts_and_comment_count.json file", err)}
-	defer file.Close()	
+	if err != nil {
+		log.Fatal("Error creating the posts_and_comment_count.json file", err)
+	}
+	defer file.Close()
 	//Store the map to the created JSON file
 	encoder := json.NewEncoder(file)
-	if err := encoder.Encode(postAndNumberOfCommentsMap); err != nil{ log.Println("Error writing values read from map to the JSON ", err)}
+	if err := encoder.Encode(postAndNumberOfCommentsMap); err != nil {
+		log.Println("Error writing values read from map to the JSON ", err)
+	}
 }
 
-func UpdateJSONWithPostsNumberOfCommentsMap(postAndNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string){
+func UpdateJSONWithPostsNumberOfCommentsMap(postAndNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string) {
 	//Using Create instead of OpenFIle might result to undefinded behaviour for cases where you want to specifically open the file for writing and not create it if it doesn't exist
-	if file, err := os.Create(*postAndNumberOfCommentsJsonPath); err!=nil{
+	if file, err := os.Create(*postAndNumberOfCommentsJsonPath); err != nil {
 		log.Println("Error opening JSON in attempt to update JSON with the new(changed) post and number of comments read from map ", err)
-	}else{
+	} else {
 		defer file.Close()
 		encoder := json.NewEncoder(file)
-		if err := encoder.Encode(postAndNumberOfCommentsMap); err != nil{log.Println("Error updating JSON with the new post and number of comments read from map ", err)}
+		if err := encoder.Encode(postAndNumberOfCommentsMap); err != nil {
+			log.Println("Error updating JSON with the new post and number of comments read from map ", err)
+		}
 	}
-	
+
 }
 
-func WriteJsonToPostsNumberOFCommentsMap(postsNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string){
-		if file, err := os.Open(*postAndNumberOfCommentsJsonPath); err!=nil{
-			log.Println("Error while opening the JSON file in an attempt to write JSON to map ", err)
-		}else{
-			defer file.Close()
-			decoder := json.NewDecoder(file)
-			if err := decoder.Decode(postsNumberOfCommentsMap); err != nil{log.Println("Error writing values read from from JSON to map ", err)}
+func WriteJsonToPostsNumberOFCommentsMap(postsNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string) {
+	if file, err := os.Open(*postAndNumberOfCommentsJsonPath); err != nil {
+		log.Println("Error while opening the JSON file in an attempt to write JSON to map ", err)
+	} else {
+		defer file.Close()
+		decoder := json.NewDecoder(file)
+		if err := decoder.Decode(postsNumberOfCommentsMap); err != nil {
+			log.Println("Error writing values read from from JSON to map ", err)
 		}
-		
 	}
 
+}
 
-func FindPostsThatHaveHaveNewComments(postAndNumberOfCommentsMap *map[string]int, posts *[]*reddit.Post) []*reddit.Post{
+func FindPostsThatHaveHaveNewComments(postAndNumberOfCommentsMap *map[string]int, posts *[]*reddit.Post) []*reddit.Post {
 	changedPosts := make([]*reddit.Post, 0, len(*posts)/4)
 	accessedKeys := make(map[string]bool)
-	for _, post := range *posts{
+	for _, post := range *posts {
 		//update the accessed keys
 		accessedKeys[post.FullID] = true
 		//If we have the post in our map
-		if _, ok := (*postAndNumberOfCommentsMap)[post.FullID]; ok{
+		if _, ok := (*postAndNumberOfCommentsMap)[post.FullID]; ok {
 			//If the number of comments on the post have increased
-			if post.NumberOfComments > (*postAndNumberOfCommentsMap)[post.FullID]{
+			if post.NumberOfComments > (*postAndNumberOfCommentsMap)[post.FullID] {
 				(*postAndNumberOfCommentsMap)[post.FullID] = post.NumberOfComments
 				//add the post to the posts to be checked for the trigger word
 				changedPosts = append(changedPosts, post)
 				//if the number of comments on the post has reduced to handle edge cases where a user deletes a comment
-				}else if post.NumberOfComments < (*postAndNumberOfCommentsMap)[post.FullID]{
-					//Change to the new reduced number of comments
-					(*postAndNumberOfCommentsMap)[post.FullID] = post.NumberOfComments
-					//add the post to the posts to be checked for the trigger word
-					changedPosts = append(changedPosts, post)
-				}
-		}else{
+			} else if post.NumberOfComments < (*postAndNumberOfCommentsMap)[post.FullID] {
+				//Change to the new reduced number of comments
+				(*postAndNumberOfCommentsMap)[post.FullID] = post.NumberOfComments
+				//add the post to the posts to be checked for the trigger word
+				changedPosts = append(changedPosts, post)
+			}
+		} else {
 			//If we dont find the post in our map then we add it ti the posts to be checked for the trigger word and add it our map
 			changedPosts = append(changedPosts, post)
 			(*postAndNumberOfCommentsMap)[post.FullID] = post.NumberOfComments
 		}
 	}
 	//Remove the keys we didn't access, we assume the post has turned old since it was NOT returned by client.Subreddit.NewPosts()
-	for key := range *postAndNumberOfCommentsMap{
-		if _, ok := accessedKeys[key]; !ok{
+	for key := range *postAndNumberOfCommentsMap {
+		if _, ok := accessedKeys[key]; !ok {
 			delete(*postAndNumberOfCommentsMap, key)
 		}
 	}
 	return changedPosts
 }
 
-
-//Finds and returns the all comments to a post
-func FindPostComments(post *reddit.Post, postService *reddit.PostService, channel chan *reddit.PostAndComments, wait *sync.WaitGroup){
+// Finds and returns the all comments to a post
+func FindPostComments(post *reddit.Post, postService *reddit.PostService, channel chan *reddit.PostAndComments, wait *sync.WaitGroup) {
 	defer wait.Done()
 	postAndComments, _, err := postService.Get(context.Background(), post.ID)
-	if err != nil{
+	if err != nil {
 		log.Fatal("Error while getting post comments ", err)
 	}
 	channel <- postAndComments
 }
 
-//Schedules go routines that find all the comments from various posts
-func FindPostsCommentsScheduler(posts *[]*reddit.Post, postService *reddit.PostService)*[]*reddit.PostAndComments{
+// Schedules go routines that find all the comments from various posts
+func FindPostsCommentsScheduler(posts *[]*reddit.Post, postService *reddit.PostService) *[]*reddit.PostAndComments {
 	channel := make(chan *reddit.PostAndComments)
 	postsAndComments := make([]*reddit.PostAndComments, len(*posts))
 	wait := &sync.WaitGroup{}
 	mutex := sync.Mutex{}
 	log.Printf("Finding comments to %v posts.. .", len(*posts))
-	for _, post := range *posts{
+	for _, post := range *posts {
 		go FindPostComments(post, postService, channel, wait)
 		mutex.Lock()
 		wait.Add(1)
 		mutex.Unlock()
 	}
-	go func(){
+	go func() {
 		defer close(channel)
 		wait.Wait()
 	}()
 	index := 0
-	for postAndComment := range channel{
+	for postAndComment := range channel {
 		postsAndComments[index] = postAndComment
 		index++
 	}
 	return &postsAndComments
 }
 
-func checkIfBotReplied(replies *[]*reddit.Comment)bool{
-	for _, reply := range *replies{
-		if reply.Author == botUsername{return true}
+func checkIfBotReplied(botUsername *string, replies *[]*reddit.Comment) bool {
+	for _, reply := range *replies {
+		if reply.Author == *botUsername {
+			return true
+		}
 	}
 	return false
 }
 
-//Recursively checks if the trigger was called on a comment or on it's replies
-func trigger_check(triggerWords*[]string, comment *reddit.Comment, channel chan *map[string]string, wait *sync.WaitGroup, mutex *sync.Mutex){
+// Recursively checks if the trigger was called on a comment or on it's replies
+func trigger_check(botUsername *string, triggerWords *[]string, comment *reddit.Comment, channel chan *map[string]string, wait *sync.WaitGroup, mutex *sync.Mutex) {
 	defer wait.Done()
 	queriedComment := make(map[string]string)
 	commentBodyLowerCase := strings.ToLower(comment.Body)
-	for _, trigger_word := range *triggerWords{
+	for _, trigger_word := range *triggerWords {
 		idx := strings.Index(commentBodyLowerCase, trigger_word)
-			if idx!=-1{
-				//Remove the leading or trailing whitespaces that come after the trigger word then return the question e.g
-				//"!sijui  how to eat cake  " -> "how to eat cake"
-				question := strings.TrimSpace(comment.Body[idx+len(trigger_word):])
-				if len(question) > 0{
-					//First check if our bot has replied to the comment
-					if !checkIfBotReplied(&(comment.Replies.Comments)){
-						queriedComment[comment.FullID] = question
-						channel <- &queriedComment
-					}
+		if idx != -1 {
+			//Remove the leading or trailing whitespaces that come after the trigger word then return the question e.g
+			//"!sijui  how to eat cake  " -> "how to eat cake"
+			question := strings.TrimSpace(comment.Body[idx+len(trigger_word):])
+			if len(question) > 0 {
+				//First check if our bot has replied to the comment
+				if !checkIfBotReplied(botUsername, &(comment.Replies.Comments)) {
+					queriedComment[comment.FullID] = question
+					channel <- &queriedComment
 				}
-				break
 			}
+			break
+		}
 
-		}
-		for index := range comment.Replies.Comments{
-			mutex.Lock()
-			wait.Add(1)
-			mutex.Unlock()
-			trigger_check(triggerWords, comment.Replies.Comments[index], channel, wait, mutex)
-		}
 	}
-	
-//Check for the trigger word in the comments of a post
-func CheckTriggerWord(triggerWords *[]string, postAndComments *reddit.PostAndComments, channel chan *map[string]string, wait *sync.WaitGroup, mutex *sync.Mutex){
-	defer wait.Done()
-	//Convert the comment body to lower case then compare the result to our trigger words
-	for _, comment := range postAndComments.Comments{
+	for index := range comment.Replies.Comments {
 		mutex.Lock()
 		wait.Add(1)
 		mutex.Unlock()
-		go trigger_check(triggerWords, comment, channel, wait, mutex)
-
-		}
+		trigger_check(botUsername, triggerWords, comment.Replies.Comments[index], channel, wait, mutex)
 	}
-	 
-//Schedules go routines to check for the trigger word in the comments to posts(many)
-func CheckTriggerWordScheduler(triggerWords *[]string, postsAndComments *[]*reddit.PostAndComments)*map[string]string{
+}
+
+// Check for the trigger word in the comments of a post
+func CheckTriggerWord(botUsername *string, triggerWords *[]string, postAndComments *reddit.PostAndComments, channel chan *map[string]string, wait *sync.WaitGroup, mutex *sync.Mutex) {
+	defer wait.Done()
+	//Convert the comment body to lower case then compare the result to our trigger words
+	for _, comment := range postAndComments.Comments {
+		mutex.Lock()
+		wait.Add(1)
+		mutex.Unlock()
+		go trigger_check(botUsername, triggerWords, comment, channel, wait, mutex)
+
+	}
+}
+
+// Schedules go routines to check for the trigger word in the comments to posts(many)
+func CheckTriggerWordScheduler(botUsername *string, triggerWords *[]string, postsAndComments *[]*reddit.PostAndComments) *map[string]string {
 	wait := sync.WaitGroup{}
 	mutex := sync.Mutex{}
 	channel := make(chan *map[string]string, len(*postsAndComments))
 	queriedComments := make(map[string]string, 10)
 	log.Println("Checking for trigger word in comments to the posts")
-	for _, postAndComments := range *postsAndComments{
-		go CheckTriggerWord(triggerWords, postAndComments, channel, &wait, &mutex)
+	for _, postAndComments := range *postsAndComments {
+		go CheckTriggerWord(botUsername, triggerWords, postAndComments, channel, &wait, &mutex)
 		mutex.Lock()
 		wait.Add(1)
 		mutex.Unlock()
 	}
-	go func(){
+	go func() {
 		defer close(channel)
 		wait.Wait()
 
 	}()
-	for queriedComment := range channel{
-		for key, value := range *queriedComment{
+	for queriedComment := range channel {
+		for key, value := range *queriedComment {
 			queriedComments[key] = value
 		}
 	}
 	return &queriedComments
 }
 
-func TestReply(unrepliedComments *map[string]string, comment_sevice *reddit.CommentService){
+func TestReply(unrepliedComments *map[string]string, comment_sevice *reddit.CommentService) {
 	reply := "Konichiwa master"
-	for commentID, question := range *unrepliedComments{
+	for commentID, question := range *unrepliedComments {
 		log.Println("Replyiing.. .")
 		comment_sevice.Submit(context.Background(), commentID, reply)
 		log.Println(question)
-		}
+	}
 }
+
 // func main(){
 // 	var credentials reddit.Credentials
 // 	SetCredentials(&credentials, credentialsPath)
@@ -274,5 +286,5 @@ func TestReply(unrepliedComments *map[string]string, comment_sevice *reddit.Comm
 // 	postsAndComments := FindPostsCommentsScheduler(&posts, postService)
 // 	queriedComments := CheckTriggerWordScheduler(&triggerWords, postsAndComments)
 // 	TestReply(queriedComments, comment_service)
-	
+
 // }

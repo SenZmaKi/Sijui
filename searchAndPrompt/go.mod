@@ -1,4 +1,4 @@
-module searchAndPrompt.go
+module searchAndPrompt	
 
 go 1.20
 
