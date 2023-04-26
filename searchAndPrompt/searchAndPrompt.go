@@ -13,7 +13,8 @@ import (
 )
 
 var (
-	googleCredentialsPath = "./googleCredentials.json"
+	googleCredentialsPath = "../googleCredentials.json"
+	openAICredentialsPath = "../openAICredentials.json"
 )
 
 //unrepliedComments *map[string]string
@@ -28,7 +29,7 @@ type GoogleResult struct{
 func SetUpGoogleCredentials(credentialsPath *string)*map[string]string{
 	googleCredentials := make(map[string]string)
 	if file, err := os.Open(*credentialsPath); err!=nil{
-		log.Fatal("Error reading googleCredentials.json ", err)
+		log.Fatal("Error opening googleCredentials.json ", err)
 	}else{
 		decoder := json.NewDecoder(file)
 		if err := decoder.Decode(&googleCredentials); err!=nil{
@@ -57,7 +58,22 @@ func GoogleSearch(query *string, searchService *customsearch.CseListCall)*[]Goog
 	return &googleResults
 }
 
+func SetUpOpenAICredentials(credentialsPath *string)*map[string]string{
+	openAICredentials := make(map[string]string)
+	if file, err := os.Open(*credentialsPath); err!=nil{
+		log.Fatal("Error opening openAICredentials.json")
+	}else{
+		decoder := json.NewDecoder(file)
+		if err := decoder.Decode(&openAICredentials); err!=nil{
+			log.Fatal("Error decoding openAICredentials.json ino openAICredentials map ", err)
+		}
+	}
+	return &openAICredentials
+}
+
 func main(){
+
+	log.Println(SetUpGoogleCredentials(&openAICredentialsPath))
 	// googleCredentials := SetUpGoogleCredentials(&googleCredentialsPath)
 	// searchService := SetUpGoogleSearchService(googleCredentials)
 	// query := "How to shit"
