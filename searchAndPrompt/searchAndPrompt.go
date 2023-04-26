@@ -65,7 +65,7 @@ func SetUpOpenAICredentials(credentialsPath *string)*map[string]string{
 	}else{
 		decoder := json.NewDecoder(file)
 		if err := decoder.Decode(&openAICredentials); err!=nil{
-			log.Fatal("Error decoding openAICredentials.json ino openAICredentials map ", err)
+			log.Fatal("Error decoding openAICredentials.json into openAICredentials map ", err)
 		}
 	}
 	return &openAICredentials
@@ -75,10 +75,29 @@ func SetUpOpenAIClient(credentials *map[string]string)*openai.Client{
 	return openai.NewClient((*credentials)["OpenAIAPIKey"])
 }
 
+func PromptGpt(client *openai.Client, prompt *string)*string{
+	request := openai.ChatCompletionRequest{
+		Model: openai.GPT3Dot5Turbo,
+		Messages: []openai.ChatCompletionMessage{
+			{
+				Role: openai.ChatMessageRoleUser,
+				Content: *prompt,
+			},
+		},
+	}
+	answer := "nil"
+	response, err := client.CreateChatCompletion(context.Background(), request)
+	if err!=nil{log.Println("Error getting response from ChatGpt ", err); return &answer}
+	return &response.Choices[0].Message.Content
+}
+
 func main(){
 
-	client := SetUpOpenAIClient(SetUpGoogleCredentials(&openAICredentialsPath))
-	log.Println(*client)
+	// client := SetUpOpenAIClient(SetUpGoogleCredentials(&openAICredentialsPath))
+	// prompt := "Korewa jiyuu da"
+	// answer := PromptGpt(client, &prompt)
+	// print(*answer)
+	
 	// googleCredentials := SetUpGoogleCredentials(&googleCredentialsPath)
 	// searchService := SetUpGoogleSearchService(googleCredentials)
 	// query := "How to shit"
