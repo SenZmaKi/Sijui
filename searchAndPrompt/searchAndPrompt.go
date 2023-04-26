@@ -1,4 +1,4 @@
-package main
+package seachAndPrompt
 
 import (
 	"context"
@@ -15,11 +15,8 @@ import (
 var (
 	googleCredentialsPath = "../googleCredentials.json"
 	openAICredentialsPath = "../openAICredentials.json"
-)
-
-//unrepliedComments *map[string]string
-//                    commentID  question
-
+	)
+	
 type GoogleResult struct{
 	Title  string;
 	Snippet string;
@@ -91,13 +88,13 @@ func PromptGpt(client *openai.Client, prompt *string)*string{
 	return &response.Choices[0].Message.Content
 }
 
-func main(){
+//func main(){
 
 	// client := SetUpOpenAIClient(SetUpGoogleCredentials(&openAICredentialsPath))
 	// prompt := "Korewa jiyuu da"
 	// answer := PromptGpt(client, &prompt)
 	// print(*answer)
-	
+
 	// googleCredentials := SetUpGoogleCredentials(&googleCredentialsPath)
 	// searchService := SetUpGoogleSearchService(googleCredentials)
 	// query := "How to shit"
@@ -107,4 +104,4 @@ func main(){
 	// 	println("Snippet: ", googleResult.Snippet)
 	// 	println("Link: ", googleResult.Link)
 	// }
-}
+//}

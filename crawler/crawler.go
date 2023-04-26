@@ -9,7 +9,9 @@ import (
 	"strings"
 	"github.com/vartanbeno/go-reddit/v2/reddit"
 )
-var (credentialsPath = "./credentials.json"
+
+var (
+	credentialsPath = "./credentials.json"
 	postAndNumberOfCommentsJsonPath = "./posts_comment_count.json"
 	subreddit = "kenya"
 	botUsername = "Sijui-bot"
@@ -49,11 +51,13 @@ func SetUpRedditClient(credentials *reddit.Credentials) *reddit.Client{
 	return client
 
 }
+
 func CheckIfPostsNumberOfCommentsJSONExists(postAndNumberOfCommentsJsonPath *string)bool{
 	if _, err := os.Stat(*postAndNumberOfCommentsJsonPath); err == nil{
 		return true
 	}else{return false}
 }
+
 func CreatePostsNumberOfCommentsJSON(postAndNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string, posts *[]*reddit.Post){
 	//Create a new map and fill it with post IDs and the number of comments
 	for _, post := range *posts{
@@ -200,8 +204,6 @@ func trigger_check(triggerWords*[]string, comment *reddit.Comment, channel chan 
 		}
 	}
 	
-
-
 //Check for the trigger word in the comments of a post
 func CheckTriggerWord(triggerWords *[]string, postAndComments *reddit.PostAndComments, channel chan *map[string]string, wait *sync.WaitGroup, mutex *sync.Mutex){
 	defer wait.Done()
@@ -215,7 +217,6 @@ func CheckTriggerWord(triggerWords *[]string, postAndComments *reddit.PostAndCom
 		}
 	}
 	 
-
 //Schedules go routines to check for the trigger word in the comments to posts(many)
 func CheckTriggerWordScheduler(triggerWords *[]string, postsAndComments *[]*reddit.PostAndComments)*map[string]string{
 	wait := sync.WaitGroup{}
