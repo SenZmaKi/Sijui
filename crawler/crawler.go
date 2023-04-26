@@ -247,6 +247,11 @@ func TestReply(unrepliedComments *map[string]string, comment_sevice *reddit.Comm
 	}
 }
 
+func FetchPosts(client *reddit.Client, subreddit *string, postOptions *reddit.ListOptions)(*[]*reddit.Post, *reddit.Response, *error){
+		posts, resp, err := client.Subreddit.NewPosts(context.Background(), *subreddit, postOptions)
+		return &posts, resp, &err
+}
+
 // func main(){
 // 	var credentials reddit.Credentials
 // 	SetCredentials(&credentials, credentialsPath)
