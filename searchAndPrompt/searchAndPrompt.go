@@ -11,11 +11,6 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-var (
-	googleCredentialsPath = "../googleCredentials.json"
-	openAICredentialsPath = "../openAICredentials.json"
-	)
-
 type GoogleResult struct{
 	Title  string;
 	Snippet string;
