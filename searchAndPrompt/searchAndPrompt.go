@@ -8,8 +8,8 @@ import (
 
 	"google.golang.org/api/customsearch/v1"
 	"google.golang.org/api/option"
-	//	"encoding.json"
-	//	"google.golang.org/api/customsearch/v1"
+	"github.com/sashabaranov/go-openai"
+
 )
 
 var (
@@ -71,9 +71,14 @@ func SetUpOpenAICredentials(credentialsPath *string)*map[string]string{
 	return &openAICredentials
 }
 
+func SetUpOpenAIClient(credentials *map[string]string)*openai.Client{
+	return openai.NewClient((*credentials)["OpenAIAPIKey"])
+}
+
 func main(){
 
-	log.Println(SetUpGoogleCredentials(&openAICredentialsPath))
+	client := SetUpOpenAIClient(SetUpGoogleCredentials(&openAICredentialsPath))
+	log.Println(*client)
 	// googleCredentials := SetUpGoogleCredentials(&googleCredentialsPath)
 	// searchService := SetUpGoogleSearchService(googleCredentials)
 	// query := "How to shit"
