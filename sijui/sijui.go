@@ -2,7 +2,7 @@ package main
 
 import (
 	"crawler"
-	//"searchAndPrompt"
+	"searchAndPrompt"
 	"log"
 	//"sync"
 
@@ -26,8 +26,8 @@ var (
 func main(){
 	//Setting up the API clients
 	redditClient := crawler.SetUpRedditClient(crawler.SetRedditCredentials(&redditCredentialsPath))
-	//googleService := searchAndPrompt.SetUpGoogleSearchService(searchAndPrompt.SetUpGoogleCredentials((&googleCredentialsPath)))
-	//openAIClient := searchAndPrompt.SetUpOpenAIClient(searchAndPrompt.SetUpOpenAICredentials(&openAICredentialsPath))
+	googleService := searchAndPrompt.SetUpGoogleSearchService(searchAndPrompt.SetUpGoogleCredentials((&googleCredentialsPath)))
+	openAIClient := searchAndPrompt.SetUpOpenAIClient(searchAndPrompt.SetUpOpenAICredentials(&openAICredentialsPath))
 
 	//Check if the postsNumberOFCOmmentsJson file exits, if not create it
 	if !crawler.CheckIfPostsNumberOfCommentsJSONExists(&postAndNumberOfCommentsJsonPath){crawler.CreatePostsNumberOfCommentsJSON(&postAndNumberOfCommentsJsonPath)}
@@ -49,8 +49,14 @@ func main(){
 	postsAndComments := crawler.FindPostsCommentsScheduler(&posts, redditClient.Post)
 	//Find and return in comments that have trigger words, returns a map that has the form {commentID: question}
 	queriedComments := crawler.CheckTriggerWordScheduler(&botUsername, &triggerWords, postsAndComments)
-
 	
+
+	for commentID, question := range *queriedComments{
+		googleResults := searchAndPrompt.GoogleSearch(&question, googleService)
+		promptResponse := searchAndPrompt.PromptGpt(openAIClient, &question)
+		
+	}
+
 	}
 
 

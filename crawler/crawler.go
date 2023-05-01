@@ -48,7 +48,9 @@ func CheckIfPostsNumberOfCommentsJSONExists(postAndNumberOfCommentsJsonPath *str
 func CreatePostsNumberOfCommentsJSON(postAndNumberOfCommentsJsonPath *string) {
 	if file, err := os.Create(*postAndNumberOfCommentsJsonPath); err != nil {
 		log.Fatal("Error creating the posts_and_comment_count.json file", err)
-	}else{file.Close()}
+	} else {
+		file.Close()
+	}
 }
 
 func UpdateJSONWithPostsNumberOfCommentsMap(postAndNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string) {
@@ -235,15 +237,15 @@ func TestReply(unrepliedComments *map[string]string, comment_sevice *reddit.Comm
 	}
 }
 
-func FetchNewPosts(client *reddit.Client, subreddit *string)(*[]*reddit.Post, *reddit.Response, error){
-		posts, resp, err := client.Subreddit.NewPosts(context.Background(), *subreddit, &reddit.ListOptions{Limit: 100})
-		return &posts, resp, err
+func FetchNewPosts(client *reddit.Client, subreddit *string) (*[]*reddit.Post, *reddit.Response, error) {
+	posts, resp, err := client.Subreddit.NewPosts(context.Background(), *subreddit, &reddit.ListOptions{Limit: 100})
+	return &posts, resp, err
 }
 
-func FetchTopPosts(client *reddit.Client, subreddit *string)(*[]*reddit.Post, *reddit.Response, error){
+func FetchTopPosts(client *reddit.Client, subreddit *string) (*[]*reddit.Post, *reddit.Response, error) {
 	posts, resp, err := client.Subreddit.TopPosts(context.Background(), *subreddit, &reddit.ListPostOptions{
 		ListOptions: reddit.ListOptions{Limit: 100},
-		Time: "day"})
+		Time:        "day"})
 	return &posts, resp, err
 }
 
