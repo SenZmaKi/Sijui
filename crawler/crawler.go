@@ -228,13 +228,8 @@ func CheckTriggerWordScheduler(botUsername *string, triggerWords *[]string, post
 	return &queriedComments
 }
 
-func TestReply(unrepliedComments *map[string]string, comment_sevice *reddit.CommentService) {
-	reply := "Konichiwa master"
-	for commentID, question := range *unrepliedComments {
-		log.Println("Replyiing.. .")
-		comment_sevice.Submit(context.Background(), commentID, reply)
-		log.Println(question)
-	}
+func Reply(commentID *string, reply *string, comment_sevice *reddit.CommentService) {
+	comment_sevice.Submit(context.Background(), *commentID, *reply)
 }
 
 func FetchNewPosts(client *reddit.Client, subreddit *string) (*[]*reddit.Post, *reddit.Response, error) {
