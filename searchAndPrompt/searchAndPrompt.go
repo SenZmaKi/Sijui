@@ -1,4 +1,4 @@
-package seachAndPrompt
+package searchAndPrompt
 
 import (
 	"context"

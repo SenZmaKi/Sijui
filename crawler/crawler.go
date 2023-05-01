@@ -12,7 +12,7 @@ import (
 )
 
 // Reads the json file containing the bots credentials for authentification in order to access the Reddit API
-func SetRedditCredentials(credentialsPath string) *reddit.Credentials {
+func SetRedditCredentials(credentialsPath *string) *reddit.Credentials {
 	credentials := &reddit.Credentials{}
 	if file, err := os.Open(credentialsPath); err != nil {
 		log.Fatal("Error opening redditCredentials.json ", err)
@@ -247,9 +247,16 @@ func TestReply(unrepliedComments *map[string]string, comment_sevice *reddit.Comm
 	}
 }
 
-func FetchPosts(client *reddit.Client, subreddit *string, postOptions *reddit.ListOptions)(*[]*reddit.Post, *reddit.Response, *error){
-		posts, resp, err := client.Subreddit.NewPosts(context.Background(), *subreddit, postOptions)
+func FetchNewPosts(client *reddit.Client, subreddit *string)(*[]*reddit.Post, *reddit.Response, *error){
+		posts, resp, err := client.Subreddit.NewPosts(context.Background(), *subreddit, &reddit.ListOptions{Limit: 100})
 		return &posts, resp, &err
+}
+
+func FetchTopPosts(client *reddit.Client, subreddit *string)(*[]*reddit.Post, *reddit.Response, *error){
+	posts, resp, err := client.Subreddit.TopPosts(context.Background(), *subreddit, &reddit.ListPostOptions{
+		ListOptions: reddit.ListOptions{Limit: 100},
+		Time: "day"})
+	return &posts, resp, &err
 }
 
 // func main(){
