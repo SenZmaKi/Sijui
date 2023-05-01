@@ -4,6 +4,7 @@ import (
 	"crawler"
 	"searchAndPrompt"
 	"log"
+	"fmt"
 	//"sync"
 
 )
@@ -12,9 +13,9 @@ var (
 	resourcesPath = "../resources"
 	redditCredentialsPath = resourcesPath+"/redditCredentials.json"
 	postAndNumberOfCommentsJsonPath = resourcesPath+"/postAndNumberOfComments.json"
-	subreddit = "kenya"
+	subreddit = "KindaLooksLikeaDildo"
 	botUsername = "Sijui-bot"
-	triggerWords = []string{"!sijui-bot", "sijui-bot", "!sijui", "u/sijui-bot"}
+	triggerWords = []string{"!sijui-bot", "!sijui", "u/sijui-bot"}
 	postAndNumberOfCommentsMap = make(map[string]int)
 
 	googleCredentialsPath = resourcesPath+"/googleCredentials.json"
@@ -22,10 +23,20 @@ var (
 
 	)
 
+func createBotReply(botName *string, promptResponse *string, googleResults *[]searchAndPrompt.GoogleResult) *string{
+	var resultString string
+	for _, result := range *(googleResults){
+		resultString += fmt.Sprintf("[%s](%s): %s\n\n", result.Title, result.Link, result.Snippet)
+	}
+	botReply := fmt.Sprintf("%s here! I've found the following information that might help answer your question:\n\n%s\n\nChat GPT says:\n\n%s\n\nI hope this helps! Let me know if you have any other questions.", *botName, resultString, *promptResponse)
+	return &botReply
+}
 
 func main(){
-	//Setting up the API clients
+	//Setting up the API clients and services
 	redditClient := crawler.SetUpRedditClient(crawler.SetRedditCredentials(&redditCredentialsPath))
+	postService := redditClient.Post
+	commentService := redditClient.Comment
 	googleService := searchAndPrompt.SetUpGoogleSearchService(searchAndPrompt.SetUpGoogleCredentials((&googleCredentialsPath)))
 	openAIClient := searchAndPrompt.SetUpOpenAIClient(searchAndPrompt.SetUpOpenAICredentials(&openAICredentialsPath))
 
@@ -46,7 +57,7 @@ func main(){
 	//Update the postsNumberofCommentsJSON with the new map
 	crawler.UpdateJSONWithPostsNumberOfCommentsMap(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath)
 	//Returns the post and it's comments
-	postsAndComments := crawler.FindPostsCommentsScheduler(&posts, redditClient.Post)
+	postsAndComments := crawler.FindPostsCommentsScheduler(&posts, postService)
 	//Find and return in comments that have trigger words, returns a map that has the form {commentID: question}
 	queriedComments := crawler.CheckTriggerWordScheduler(&botUsername, &triggerWords, postsAndComments)
 	
@@ -54,7 +65,8 @@ func main(){
 	for commentID, question := range *queriedComments{
 		googleResults := searchAndPrompt.GoogleSearch(&question, googleService)
 		promptResponse := searchAndPrompt.PromptGpt(openAIClient, &question)
-		
+		botReply := createBotReply(&botUsername, promptResponse, googleResults)
+		crawler.Reply(&commentID, botReply, commentService)
 	}
 
 	}
