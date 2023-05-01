@@ -14,7 +14,7 @@ import (
 // Reads the json file containing the bots credentials for authentification in order to access the Reddit API
 func SetRedditCredentials(credentialsPath *string) *reddit.Credentials {
 	credentials := &reddit.Credentials{}
-	if file, err := os.Open(credentialsPath); err != nil {
+	if file, err := os.Open(*credentialsPath); err != nil {
 		log.Fatal("Error opening redditCredentials.json ", err)
 	} else {
 		defer file.Close()
@@ -45,22 +45,10 @@ func CheckIfPostsNumberOfCommentsJSONExists(postAndNumberOfCommentsJsonPath *str
 	}
 }
 
-func CreatePostsNumberOfCommentsJSON(postAndNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string, posts *[]*reddit.Post) {
-	//Create a new map and fill it with post IDs and the number of comments
-	for _, post := range *posts {
-		(*postAndNumberOfCommentsMap)[post.FullID] = post.NumberOfComments
-	}
-	//Create a JSON file to store the map
-	file, err := os.Create(*postAndNumberOfCommentsJsonPath)
-	if err != nil {
+func CreatePostsNumberOfCommentsJSON(postAndNumberOfCommentsJsonPath *string) {
+	if file, err := os.Create(*postAndNumberOfCommentsJsonPath); err != nil {
 		log.Fatal("Error creating the posts_and_comment_count.json file", err)
-	}
-	defer file.Close()
-	//Store the map to the created JSON file
-	encoder := json.NewEncoder(file)
-	if err := encoder.Encode(postAndNumberOfCommentsMap); err != nil {
-		log.Println("Error writing values read from map to the JSON ", err)
-	}
+	}else{file.Close()}
 }
 
 func UpdateJSONWithPostsNumberOfCommentsMap(postAndNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string) {
@@ -247,16 +235,16 @@ func TestReply(unrepliedComments *map[string]string, comment_sevice *reddit.Comm
 	}
 }
 
-func FetchNewPosts(client *reddit.Client, subreddit *string)(*[]*reddit.Post, *reddit.Response, *error){
+func FetchNewPosts(client *reddit.Client, subreddit *string)(*[]*reddit.Post, *reddit.Response, error){
 		posts, resp, err := client.Subreddit.NewPosts(context.Background(), *subreddit, &reddit.ListOptions{Limit: 100})
-		return &posts, resp, &err
+		return &posts, resp, err
 }
 
-func FetchTopPosts(client *reddit.Client, subreddit *string)(*[]*reddit.Post, *reddit.Response, *error){
+func FetchTopPosts(client *reddit.Client, subreddit *string)(*[]*reddit.Post, *reddit.Response, error){
 	posts, resp, err := client.Subreddit.TopPosts(context.Background(), *subreddit, &reddit.ListPostOptions{
 		ListOptions: reddit.ListOptions{Limit: 100},
 		Time: "day"})
-	return &posts, resp, &err
+	return &posts, resp, err
 }
 
 // func main(){
