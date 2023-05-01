@@ -158,7 +158,7 @@ func checkIfBotReplied(botUsername *string, replies *[]*reddit.Comment) bool {
 }
 
 // Recursively checks if the trigger was called on a comment or on it's replies
-func trigger_check(botUsername *string, triggerWords *[]string, comment *reddit.Comment, channel chan *map[string]string, wait *sync.WaitGroup, mutex *sync.Mutex) {
+func triggerCheck(botUsername *string, triggerWords *[]string, comment *reddit.Comment, channel chan *map[string]string, wait *sync.WaitGroup, mutex *sync.Mutex) {
 	defer wait.Done()
 	queriedComment := make(map[string]string)
 	commentBodyLowerCase := strings.ToLower(comment.Body)
@@ -166,7 +166,7 @@ func trigger_check(botUsername *string, triggerWords *[]string, comment *reddit.
 		idx := strings.Index(commentBodyLowerCase, trigger_word)
 		if idx != -1 {
 			//Remove the leading or trailing whitespaces that come after the trigger word then return the question e.g
-			//"!sijui  how to eat cake  " -> "how to eat cake"
+			//"!sijui  how to eat cake  " to "how to eat cake"
 			question := strings.TrimSpace(comment.Body[idx+len(trigger_word):])
 			if len(question) > 0 {
 				//First check if our bot has replied to the comment
@@ -183,7 +183,7 @@ func trigger_check(botUsername *string, triggerWords *[]string, comment *reddit.
 		mutex.Lock()
 		wait.Add(1)
 		mutex.Unlock()
-		trigger_check(botUsername, triggerWords, comment.Replies.Comments[index], channel, wait, mutex)
+		triggerCheck(botUsername, triggerWords, comment.Replies.Comments[index], channel, wait, mutex)
 	}
 }
 
@@ -195,7 +195,7 @@ func CheckTriggerWord(botUsername *string, triggerWords *[]string, postAndCommen
 		mutex.Lock()
 		wait.Add(1)
 		mutex.Unlock()
-		go trigger_check(botUsername, triggerWords, comment, channel, wait, mutex)
+		go triggerCheck(botUsername, triggerWords, comment, channel, wait, mutex)
 
 	}
 }

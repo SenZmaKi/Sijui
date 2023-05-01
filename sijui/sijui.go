@@ -45,9 +45,16 @@ func main(){
 	posts = crawler.FindPostsThatHaveHaveNewComments(&postAndNumberOfCommentsMap, &posts)
 	//Update the postsNumberofCommentsJSON with the new map
 	crawler.UpdateJSONWithPostsNumberOfCommentsMap(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath)
-	postAndComments := crawler.FindPostsCommentsScheduler(&posts, )
+	//Returns the post and it's comments
+	postsAndComments := crawler.FindPostsCommentsScheduler(&posts, redditClient.Post)
+	//Find and return in comments that have trigger words, returns a map that has the form {commentID: question}
+	queriedComments := crawler.CheckTriggerWordScheduler(&botUsername, &triggerWords, postsAndComments)
+
+	
+	}
+
+
 
 
 	
 	
-}
