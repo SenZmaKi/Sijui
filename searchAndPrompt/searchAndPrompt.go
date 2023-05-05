@@ -34,23 +34,24 @@ func SetUpGoogleSearchService(credentials *map[string]string) *customsearch.CseL
 	service, err := customsearch.NewService(context.Background(), option.WithAPIKey((*credentials)["CustomSearchAPIKey"]))
 	if err != nil {
 		log.Fatal("Error creating new custom search service ", err)
+		return &customsearch.CseListCall{}
 	}
 	return service.Cse.List().Cx((*credentials)["SearchEngineID"])
 }
 
-func GoogleSearch(query *string, searchService *customsearch.CseListCall) *[]GoogleResult {
+func GoogleSearch(query *string, searchService *customsearch.CseListCall) (*[]GoogleResult, *error) {
 	results, err := searchService.Q(*query).Do()
+	googleResults := make([]GoogleResult, 3)
 	if err != nil {
-		log.Println("Error fetching google search results ", err)
+		return &googleResults, &err
 	}
 	resultItems := results.Items[:3]
-	googleResults := make([]GoogleResult, 3)
 	for idx := 0; idx < 3; idx++ {
 		googleResults[idx].Title = resultItems[idx].Title
 		googleResults[idx].Snippet = resultItems[idx].Snippet
 		googleResults[idx].Link = resultItems[idx].Link
 	}
-	return &googleResults
+	return &googleResults, &err
 }
 
 func SetUpOpenAICredentials(credentialsPath *string) *map[string]string {
@@ -70,7 +71,7 @@ func SetUpOpenAIClient(credentials *map[string]string) *openai.Client {
 	return openai.NewClient((*credentials)["OpenAIAPIKey"])
 }
 
-func PromptGpt(client *openai.Client, prompt *string) *string {
+func PromptGpt(client *openai.Client, prompt *string) (*string, *error) {
 	request := openai.ChatCompletionRequest{
 		Model: openai.GPT3Dot5Turbo,
 		Messages: []openai.ChatCompletionMessage{
@@ -83,10 +84,9 @@ func PromptGpt(client *openai.Client, prompt *string) *string {
 	answer := "nil"
 	response, err := client.CreateChatCompletion(context.Background(), request)
 	if err != nil {
-		log.Println("Error getting response from ChatGpt ", err)
-		return &answer
+		return &answer, &err
 	}
-	return &response.Choices[0].Message.Content
+	return &response.Choices[0].Message.Content, &err
 }
 
 //func main(){
