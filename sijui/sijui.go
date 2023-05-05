@@ -2,11 +2,11 @@ package main
 
 import (
 	"crawler"
-	"searchAndPrompt"
-	"log"
 	"fmt"
+	"log"
+	"searchAndPrompt"
+	"time"
 	//"sync"
-
 )
 
 var (
@@ -20,6 +20,11 @@ var (
 
 	googleCredentialsPath = resourcesPath+"/googleCredentials.json"
 	openAICredentialsPath = resourcesPath+"/openAICredentials.json"
+
+	googleRetryDelay = 5 * time.Second
+	openAIRetryDelay = 20 * time.Second
+	redditRetryDelay = 10 * time.Second
+	retryCount = 10
 
 	)
 
@@ -63,8 +68,21 @@ func main(){
 	
 
 	for commentID, question := range *queriedComments{
-		googleResults := searchAndPrompt.GoogleSearch(&question, googleService)
-		promptResponse := searchAndPrompt.PromptGpt(openAIClient, &question)
+		var err *error
+		var googleResults *[]searchAndPrompt.GoogleResult
+		var promptResponse *string
+		for err == nil && retryCount > 0{
+			googleResults, err = searchAndPrompt.GoogleSearch(&question, googleService)
+			if err != nil{time.Sleep(googleRetryDelay)}else{err = nil}
+			retryCount -= 1
+		}
+		for err == nil && retryCount > 0{
+			promptResponse, err = searchAndPrompt.PromptGpt(openAIClient, &question)
+			if err != nil{time.Sleep(openAIRetryDelay)}
+			retryCount -= 1
+		}
+
+
 		botReply := createBotReply(&botUsername, promptResponse, googleResults)
 		crawler.Reply(&commentID, botReply, commentService)
 	}
