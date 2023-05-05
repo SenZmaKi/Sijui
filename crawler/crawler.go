@@ -15,11 +15,11 @@ import (
 func SetRedditCredentials(credentialsPath *string) *reddit.Credentials {
 	credentials := &reddit.Credentials{}
 	if file, err := os.Open(*credentialsPath); err != nil {
-		log.Fatal("Error opening redditCredentials.json ", err)
+		log.Fatal("Error opening redditCredentials.json: ", err)
 	} else {
 		defer file.Close()
 		if err := json.NewDecoder(file).Decode(credentials); err != nil {
-			log.Fatal("Error decoding redditCredentials.json into redditCredentials map ", err)
+			log.Fatal("Error decoding redditCredentials.json into redditCredentials map: ", err)
 		}
 	}
 	return credentials
@@ -31,7 +31,7 @@ func SetRedditCredentials(credentialsPath *string) *reddit.Credentials {
 func SetUpRedditClient(credentials *reddit.Credentials) *reddit.Client {
 	client, err := reddit.NewClient(*credentials)
 	if err != nil {
-		log.Fatal("Error while setting up client ", err)
+		log.Fatal("Error while setting up client: ", err)
 	}
 	return client
 
@@ -47,7 +47,7 @@ func CheckIfPostsNumberOfCommentsJSONExists(postAndNumberOfCommentsJsonPath *str
 
 func CreatePostsNumberOfCommentsJSON(postAndNumberOfCommentsJsonPath *string) {
 	if file, err := os.Create(*postAndNumberOfCommentsJsonPath); err != nil {
-		log.Fatal("Error creating the posts_and_comment_count.json file", err)
+		log.Fatal("Error creating the posts_and_comment_count.json file: ", err)
 	} else {
 		file.Close()
 	}
@@ -56,12 +56,12 @@ func CreatePostsNumberOfCommentsJSON(postAndNumberOfCommentsJsonPath *string) {
 func UpdateJSONWithPostsNumberOfCommentsMap(postAndNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string) {
 	//Using Create instead of OpenFIle might result to undefinded behaviour for cases where you want to specifically open the file for writing and not create it if it doesn't exist
 	if file, err := os.Create(*postAndNumberOfCommentsJsonPath); err != nil {
-		log.Println("Error opening JSON in attempt to update JSON with the new(changed) post and number of comments read from map ", err)
+		log.Println("Error opening JSON in attempt to update JSON with the new(changed) post and number of comments read from map: ", err)
 	} else {
 		defer file.Close()
 		encoder := json.NewEncoder(file)
 		if err := encoder.Encode(postAndNumberOfCommentsMap); err != nil {
-			log.Println("Error updating JSON with the new post and number of comments read from map ", err)
+			log.Println("Error updating JSON with the new post and number of comments read from map: ", err)
 		}
 	}
 
@@ -69,12 +69,12 @@ func UpdateJSONWithPostsNumberOfCommentsMap(postAndNumberOfCommentsMap *map[stri
 
 func WriteJsonToPostsNumberOFCommentsMap(postsNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string) {
 	if file, err := os.Open(*postAndNumberOfCommentsJsonPath); err != nil {
-		log.Println("Error while opening the JSON file in an attempt to write JSON to map ", err)
+		log.Println("Error while opening the JSON file in an attempt to write JSON to map: ", err)
 	} else {
 		defer file.Close()
 		decoder := json.NewDecoder(file)
 		if err := decoder.Decode(postsNumberOfCommentsMap); err != nil {
-			log.Println("Error writing values read from from JSON to map ", err)
+			log.Println("Error writing values read from JSON to map: ", err)
 		}
 	}
 
@@ -120,7 +120,7 @@ func FindPostComments(post *reddit.Post, postService *reddit.PostService, channe
 	defer wait.Done()
 	postAndComments, _, err := postService.Get(context.Background(), post.ID)
 	if err != nil {
-		log.Fatal("Error while getting post comments ", err)
+		log.Fatal("Error while getting post comments: ", err)
 	}
 	channel <- postAndComments
 }
@@ -240,7 +240,7 @@ func FetchNewPosts(client *reddit.Client, subreddit *string) (*[]*reddit.Post, *
 func FetchTopPosts(client *reddit.Client, subreddit *string) (*[]*reddit.Post, *reddit.Response, error) {
 	posts, resp, err := client.Subreddit.TopPosts(context.Background(), *subreddit, &reddit.ListPostOptions{
 		ListOptions: reddit.ListOptions{Limit: 100},
-		Time:        "day"})
+		Time: "day"})
 	return &posts, resp, err
 }
 

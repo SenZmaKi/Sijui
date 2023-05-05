@@ -39,11 +39,11 @@ func SetUpGoogleSearchService(credentials *map[string]string) *customsearch.CseL
 	return service.Cse.List().Cx((*credentials)["SearchEngineID"])
 }
 
-func GoogleSearch(query *string, searchService *customsearch.CseListCall) (*[]GoogleResult, *error) {
+func GoogleSearch(query *string, searchService *customsearch.CseListCall) (*[]GoogleResult, error) {
 	results, err := searchService.Q(*query).Do()
 	googleResults := make([]GoogleResult, 3)
 	if err != nil {
-		return &googleResults, &err
+		return &googleResults, err
 	}
 	resultItems := results.Items[:3]
 	for idx := 0; idx < 3; idx++ {
@@ -51,7 +51,7 @@ func GoogleSearch(query *string, searchService *customsearch.CseListCall) (*[]Go
 		googleResults[idx].Snippet = resultItems[idx].Snippet
 		googleResults[idx].Link = resultItems[idx].Link
 	}
-	return &googleResults, &err
+	return &googleResults, err
 }
 
 func SetUpOpenAICredentials(credentialsPath *string) *map[string]string {
@@ -71,7 +71,7 @@ func SetUpOpenAIClient(credentials *map[string]string) *openai.Client {
 	return openai.NewClient((*credentials)["OpenAIAPIKey"])
 }
 
-func PromptGpt(client *openai.Client, prompt *string) (*string, *error) {
+func PromptGpt(client *openai.Client, prompt *string) (*string, error) {
 	request := openai.ChatCompletionRequest{
 		Model: openai.GPT3Dot5Turbo,
 		Messages: []openai.ChatCompletionMessage{
@@ -84,9 +84,9 @@ func PromptGpt(client *openai.Client, prompt *string) (*string, *error) {
 	answer := "nil"
 	response, err := client.CreateChatCompletion(context.Background(), request)
 	if err != nil {
-		return &answer, &err
+		return &answer, err
 	}
-	return &response.Choices[0].Message.Content, &err
+	return &response.Choices[0].Message.Content, err
 }
 
 //func main(){
