@@ -11,7 +11,7 @@ import (
 	"github.com/vartanbeno/go-reddit/v2/reddit"
 )
 
-// Reads the json file containing the bots credentials for authentification in order to access the Reddit API
+// Reads the JSON file containing the bots credentials for authentification in order to access the Reddit API
 func SetRedditCredentials(credentialsPath *string) *reddit.Credentials {
 	credentials := &reddit.Credentials{}
 	if file, err := os.Open(*credentialsPath); err != nil {
@@ -37,6 +37,7 @@ func SetUpRedditClient(credentials *reddit.Credentials) *reddit.Client {
 
 }
 
+// Checks whether the JSON file containing the posts and their number of comments exists
 func CheckIfPostsNumberOfCommentsJSONExists(postAndNumberOfCommentsJsonPath *string) bool {
 	if _, err := os.Stat(*postAndNumberOfCommentsJsonPath); err == nil {
 		return true
@@ -45,6 +46,7 @@ func CheckIfPostsNumberOfCommentsJSONExists(postAndNumberOfCommentsJsonPath *str
 	}
 }
 
+// Creates the JSON file that contains the posts and their number of comments
 func CreatePostsNumberOfCommentsJSON(postAndNumberOfCommentsJsonPath *string) {
 	if file, err := os.Create(*postAndNumberOfCommentsJsonPath); err != nil {
 		log.Fatal("Error creating the posts_and_comment_count.json file: ", err)
@@ -53,8 +55,10 @@ func CreatePostsNumberOfCommentsJSON(postAndNumberOfCommentsJsonPath *string) {
 	}
 }
 
+// Updates the JSON containng the posts and their number of comments with postsAndNumberOfCommentsMap that contains the same
+// This is used for when we find that the number of comments in the most recently fetched posts has changed
 func UpdateJSONWithPostsNumberOfCommentsMap(postAndNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string) {
-	//Using Create instead of OpenFIle might result to undefinded behaviour for cases where you want to specifically open the file for writing and not create it if it doesn't exist
+	//Using Create instead of OpenFile cause OpenFile might result to undefined behaviour for cases where you want to specifically open the file for writing and not create it if it doesn't exist
 	if file, err := os.Create(*postAndNumberOfCommentsJsonPath); err != nil {
 		log.Println("Error opening JSON in attempt to update JSON with the new(changed) post and number of comments read from map: ", err)
 	} else {
@@ -67,6 +71,7 @@ func UpdateJSONWithPostsNumberOfCommentsMap(postAndNumberOfCommentsMap *map[stri
 
 }
 
+// Write the values read from the JSON containing posts and their number of comments into the postsAndNumberOfCommentsMap which contains the same
 func WriteJsonToPostsNumberOFCommentsMap(postsNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string) {
 	if file, err := os.Open(*postAndNumberOfCommentsJsonPath); err != nil {
 		log.Println("Error while opening the JSON file in an attempt to write JSON to map: ", err)
@@ -80,33 +85,34 @@ func WriteJsonToPostsNumberOFCommentsMap(postsNumberOfCommentsMap *map[string]in
 
 }
 
+// Checks whether there has been a change in the number of comments of the most recently fetched posts as compared to the previously pulled posts, then updates the postsAndNumberOfCommentsMap
 func FindPostsThatHaveHaveNewComments(postAndNumberOfCommentsMap *map[string]int, posts *[]*reddit.Post) []*reddit.Post {
 	changedPosts := make([]*reddit.Post, 0, len(*posts)/4)
 	accessedKeys := make(map[string]bool)
 	for _, post := range *posts {
-		//update the accessed keys
+		//Update the accessed keys
 		accessedKeys[post.FullID] = true
 		//If we have the post in our map
 		if _, ok := (*postAndNumberOfCommentsMap)[post.FullID]; ok {
 			//If the number of comments on the post have increased
 			if post.NumberOfComments > (*postAndNumberOfCommentsMap)[post.FullID] {
 				(*postAndNumberOfCommentsMap)[post.FullID] = post.NumberOfComments
-				//add the post to the posts to be checked for the trigger word
+				//Add the post to the posts to be checked for the trigger word
 				changedPosts = append(changedPosts, post)
-				//if the number of comments on the post has reduced to handle edge cases where a user deletes a comment
+				//If the number of comments on the post has reduced to handle edge cases where a user deletes a comment
 			} else if post.NumberOfComments < (*postAndNumberOfCommentsMap)[post.FullID] {
 				//Change to the new reduced number of comments
 				(*postAndNumberOfCommentsMap)[post.FullID] = post.NumberOfComments
-				//add the post to the posts to be checked for the trigger word
+				//Add the post to the posts to be checked for the trigger word
 				changedPosts = append(changedPosts, post)
 			}
 		} else {
-			//If we dont find the post in our map then we add it ti the posts to be checked for the trigger word and add it our map
+			//If we dont find the post in our map then we add it to the posts to be checked for the trigger word and add it in our map
 			changedPosts = append(changedPosts, post)
 			(*postAndNumberOfCommentsMap)[post.FullID] = post.NumberOfComments
 		}
 	}
-	//Remove the keys we didn't access, we assume the post has turned old since it was NOT returned by client.Subreddit.NewPosts()
+	//Remove the keys that weren't accessed, we assume the post has turned old since it was NOT returned by client.Subreddit.NewPosts()
 	for key := range *postAndNumberOfCommentsMap {
 		if _, ok := accessedKeys[key]; !ok {
 			delete(*postAndNumberOfCommentsMap, key)
@@ -115,7 +121,8 @@ func FindPostsThatHaveHaveNewComments(postAndNumberOfCommentsMap *map[string]int
 	return changedPosts
 }
 
-// Finds and returns the all comments to a post
+// Finds all comments to a post and the replies to the comments, then sends them to the passed channel
+// If a comment has a lot of replies it may not fetch all the replies, this is a limitation caused by the reddit API
 func FindPostComments(post *reddit.Post, postService *reddit.PostService, channel chan *reddit.PostAndComments, wait *sync.WaitGroup) {
 	defer wait.Done()
 	postAndComments, _, err := postService.Get(context.Background(), post.ID)
@@ -150,6 +157,7 @@ func FindPostsCommentsScheduler(posts *[]*reddit.Post, postService *reddit.PostS
 	return &postsAndComments
 }
 
+//Checks whether the bot already replied to the comment 
 func checkIfBotReplied(botUsername *string, replies *[]*reddit.Comment) bool {
 	for _, reply := range *replies {
 		if reply.Author == *botUsername {
@@ -159,7 +167,7 @@ func checkIfBotReplied(botUsername *string, replies *[]*reddit.Comment) bool {
 	return false
 }
 
-// Recursively checks if the trigger was called on a comment or on it's replies
+// Recursively checks if the trigger was called on a comment or on it's replies and sends the calling comments to the passed channel
 func triggerCheck(botUsername *string, triggerWords *[]string, comment *reddit.Comment, channel chan *map[string]string, wait *sync.WaitGroup, mutex *sync.Mutex) {
 	defer wait.Done()
 	queriedComment := make(map[string]string)
@@ -202,7 +210,7 @@ func CheckTriggerWord(botUsername *string, triggerWords *[]string, postAndCommen
 	}
 }
 
-// Schedules go routines to check for the trigger word in the comments to posts(many)
+// Schedules go routines to check for the trigger word in the comments to posts
 func CheckTriggerWordScheduler(botUsername *string, triggerWords *[]string, postsAndComments *[]*reddit.PostAndComments) *map[string]string {
 	wait := sync.WaitGroup{}
 	mutex := sync.Mutex{}
@@ -228,15 +236,18 @@ func CheckTriggerWordScheduler(botUsername *string, triggerWords *[]string, post
 	return &queriedComments
 }
 
+//Replies to a comment
 func Reply(commentID *string, reply *string, comment_sevice *reddit.CommentService) {
 	comment_sevice.Submit(context.Background(), *commentID, *reply)
 }
 
+//Fetches the new posts of subreddit
 func FetchNewPosts(client *reddit.Client, subreddit *string) (*[]*reddit.Post, *reddit.Response, error) {
 	posts, resp, err := client.Subreddit.NewPosts(context.Background(), *subreddit, &reddit.ListOptions{Limit: 100})
 	return &posts, resp, err
 }
 
+//Fetches the top posts of the day of a subreddit
 func FetchTopPosts(client *reddit.Client, subreddit *string) (*[]*reddit.Post, *reddit.Response, error) {
 	posts, resp, err := client.Subreddit.TopPosts(context.Background(), *subreddit, &reddit.ListPostOptions{
 		ListOptions: reddit.ListOptions{Limit: 100},
