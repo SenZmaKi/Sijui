@@ -17,9 +17,9 @@ type GoogleResult struct {
 	Link    string
 }
 
-func SetUpGoogleCredentials(credentialsPath *string) *map[string]string {
+func SetUpGoogleCredentials(credentialsPath string) *map[string]string {
 	googleCredentials := make(map[string]string)
-	if file, err := os.Open(*credentialsPath); err != nil {
+	if file, err := os.Open(credentialsPath); err != nil {
 		log.Fatal("Error opening googleCredentials.json ", err)
 	} else {
 		decoder := json.NewDecoder(file)
@@ -39,8 +39,8 @@ func SetUpGoogleSearchService(credentials *map[string]string) *customsearch.CseL
 	return service.Cse.List().Cx((*credentials)["SearchEngineID"])
 }
 
-func GoogleSearch(query *string, searchService *customsearch.CseListCall) (*[]GoogleResult, error) {
-	results, err := searchService.Q(*query).Do()
+func GoogleSearch(query string, searchService *customsearch.CseListCall) (*[]GoogleResult, error) {
+	results, err := searchService.Q(query).Do()
 	googleResults := make([]GoogleResult, 3)
 	if err == nil {
 		resultItems := results.Items[:3]
@@ -54,9 +54,9 @@ func GoogleSearch(query *string, searchService *customsearch.CseListCall) (*[]Go
 	return &googleResults, err
 }
 
-func SetUpOpenAICredentials(credentialsPath *string) *map[string]string {
+func SetUpOpenAICredentials(credentialsPath string) *map[string]string {
 	openAICredentials := make(map[string]string)
-	if file, err := os.Open(*credentialsPath); err != nil {
+	if file, err := os.Open(credentialsPath); err != nil {
 		log.Fatal("Error opening openAICredentials.json")
 	} else {
 		decoder := json.NewDecoder(file)
@@ -71,13 +71,13 @@ func SetUpOpenAIClient(credentials *map[string]string) *openai.Client {
 	return openai.NewClient((*credentials)["OpenAIAPIKey"])
 }
 
-func PromptGpt(client *openai.Client, prompt *string) (*string, error) {
+func PromptGpt(client *openai.Client, prompt string) (string, error) {
 	request := openai.ChatCompletionRequest{
 		Model: openai.GPT3Dot5Turbo,
 		Messages: []openai.ChatCompletionMessage{
 			{
 				Role:    openai.ChatMessageRoleUser,
-				Content: *prompt,
+				Content: prompt,
 			},
 		},
 	}
@@ -85,9 +85,9 @@ func PromptGpt(client *openai.Client, prompt *string) (*string, error) {
 	response, err := client.CreateChatCompletion(context.Background(), request)
 	println(response.Choices[0].Message.Content)
 	if err != nil {
-		return &answer, err
+		return answer, err
 	}
-	return &response.Choices[0].Message.Content, err
+	return response.Choices[0].Message.Content, err
 }
 
 // func main(){
