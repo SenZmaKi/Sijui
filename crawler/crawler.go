@@ -11,7 +11,7 @@ import (
 	"github.com/vartanbeno/go-reddit/v2/reddit"
 )
 
-// Reads the JSON file containing the bots credentials for authentification in order to access the Reddit API
+// Reads the json file containing the bots credentials for authentification in order to access the Reddit API
 func SetRedditCredentials(credentialsPath *string) *reddit.Credentials {
 	credentials := &reddit.Credentials{}
 	if file, err := os.Open(*credentialsPath); err != nil {
@@ -37,7 +37,6 @@ func SetUpRedditClient(credentials *reddit.Credentials) *reddit.Client {
 
 }
 
-// Checks whether the JSON file containing the posts and their number of comments exists
 func CheckIfPostsNumberOfCommentsJSONExists(postAndNumberOfCommentsJsonPath *string) bool {
 	if _, err := os.Stat(*postAndNumberOfCommentsJsonPath); err == nil {
 		return true
@@ -46,7 +45,6 @@ func CheckIfPostsNumberOfCommentsJSONExists(postAndNumberOfCommentsJsonPath *str
 	}
 }
 
-// Creates the JSON file that contains the posts and their number of comments
 func CreatePostsNumberOfCommentsJSON(postAndNumberOfCommentsJsonPath *string) {
 	if file, err := os.Create(*postAndNumberOfCommentsJsonPath); err != nil {
 		log.Fatal("Error creating the posts_and_comment_count.json file: ", err)
@@ -55,10 +53,8 @@ func CreatePostsNumberOfCommentsJSON(postAndNumberOfCommentsJsonPath *string) {
 	}
 }
 
-// Updates the JSON containng the posts and their number of comments with postsAndNumberOfCommentsMap that contains the same
-// This is used for when we find that the number of comments in the most recently fetched posts has changed
 func UpdateJSONWithPostsNumberOfCommentsMap(postAndNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string) {
-	//Using Create instead of OpenFile cause OpenFile might result to undefined behaviour for cases where you want to specifically open the file for writing and not create it if it doesn't exist
+	// 0666 is a flag that allows for Read and Write permissions
 	if file, err := os.Create(*postAndNumberOfCommentsJsonPath); err != nil {
 		log.Println("Error opening JSON in attempt to update JSON with the new(changed) post and number of comments read from map: ", err)
 	} else {
@@ -71,48 +67,44 @@ func UpdateJSONWithPostsNumberOfCommentsMap(postAndNumberOfCommentsMap *map[stri
 
 }
 
-// Write the values read from the JSON containing posts and their number of comments into the postsAndNumberOfCommentsMap which contains the same
-func WriteJsonToPostsNumberOFCommentsMap(postsNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath *string) {
+func CreatePostsNumberOfCommentsMapFromJson(postAndNumberOfCommentsJsonPath *string) *map[string]int {
+	postsNumberOfCommentsMap := make(map[string]int)
+	if !CheckIfPostsNumberOfCommentsJSONExists(postAndNumberOfCommentsJsonPath) {
+		CreatePostsNumberOfCommentsJSON(postAndNumberOfCommentsJsonPath)
+	}
 	if file, err := os.Open(*postAndNumberOfCommentsJsonPath); err != nil {
-		log.Println("Error while opening the JSON file in an attempt to write JSON to map: ", err)
+		log.Fatal("Error while opening the JSON file in an attempt to write JSON to map: ", err)
 	} else {
 		defer file.Close()
 		decoder := json.NewDecoder(file)
-		if err := decoder.Decode(postsNumberOfCommentsMap); err != nil {
-			log.Println("Error writing values read from JSON to map: ", err)
+		if err := decoder.Decode(&postsNumberOfCommentsMap); err != nil {
+			log.Fatal("Error writing values read from JSON to map: ", err)
 		}
 	}
-
+	return &postsNumberOfCommentsMap
 }
 
-// Checks whether there has been a change in the number of comments of the most recently fetched posts as compared to the previously pulled posts, then updates the postsAndNumberOfCommentsMap
 func FindPostsThatHaveHaveNewComments(postAndNumberOfCommentsMap *map[string]int, posts *[]*reddit.Post) []*reddit.Post {
 	changedPosts := make([]*reddit.Post, 0, len(*posts)/4)
 	accessedKeys := make(map[string]bool)
 	for _, post := range *posts {
-		//Update the accessed keys
+		// update the accessed keys
 		accessedKeys[post.FullID] = true
-		//If we have the post in our map
+		// If we have the post in our map
 		if _, ok := (*postAndNumberOfCommentsMap)[post.FullID]; ok {
-			//If the number of comments on the post have increased
-			if post.NumberOfComments > (*postAndNumberOfCommentsMap)[post.FullID] {
+			// If the number of comments on the post have changed
+			if post.NumberOfComments != ((*postAndNumberOfCommentsMap)[post.FullID]) {
 				(*postAndNumberOfCommentsMap)[post.FullID] = post.NumberOfComments
-				//Add the post to the posts to be checked for the trigger word
-				changedPosts = append(changedPosts, post)
-				//If the number of comments on the post has reduced to handle edge cases where a user deletes a comment
-			} else if post.NumberOfComments < (*postAndNumberOfCommentsMap)[post.FullID] {
-				//Change to the new reduced number of comments
-				(*postAndNumberOfCommentsMap)[post.FullID] = post.NumberOfComments
-				//Add the post to the posts to be checked for the trigger word
+				// add the post to the posts to be checked for the trigger word
 				changedPosts = append(changedPosts, post)
 			}
 		} else {
-			//If we dont find the post in our map then we add it to the posts to be checked for the trigger word and add it in our map
+			// If we dont find the post in our map then we add it ti the posts to be checked for the trigger word and add it our map
 			changedPosts = append(changedPosts, post)
 			(*postAndNumberOfCommentsMap)[post.FullID] = post.NumberOfComments
 		}
 	}
-	//Remove the keys that weren't accessed, we assume the post has turned old since it was NOT returned by client.Subreddit.NewPosts()
+	// Remove the keys we didn't access, we assume the post has turned old since it was NOT returned by client.Subreddit.NewPosts()
 	for key := range *postAndNumberOfCommentsMap {
 		if _, ok := accessedKeys[key]; !ok {
 			delete(*postAndNumberOfCommentsMap, key)
@@ -121,8 +113,7 @@ func FindPostsThatHaveHaveNewComments(postAndNumberOfCommentsMap *map[string]int
 	return changedPosts
 }
 
-// Finds all comments to a post and the replies to the comments, then sends them to the passed channel
-// If a comment has a lot of replies it may not fetch all the replies, this is a limitation caused by the reddit API
+// Finds and returns the all comments to a post
 func FindPostComments(post *reddit.Post, postService *reddit.PostService, channel chan *reddit.PostAndComments, wait *sync.WaitGroup) {
 	defer wait.Done()
 	postAndComments, _, err := postService.Get(context.Background(), post.ID)
@@ -138,7 +129,6 @@ func FindPostsCommentsScheduler(posts *[]*reddit.Post, postService *reddit.PostS
 	postsAndComments := make([]*reddit.PostAndComments, len(*posts))
 	wait := &sync.WaitGroup{}
 	mutex := sync.Mutex{}
-	log.Printf("Finding comments to %v posts.. .", len(*posts))
 	for _, post := range *posts {
 		go FindPostComments(post, postService, channel, wait)
 		mutex.Lock()
@@ -157,7 +147,6 @@ func FindPostsCommentsScheduler(posts *[]*reddit.Post, postService *reddit.PostS
 	return &postsAndComments
 }
 
-//Checks whether the bot already replied to the comment 
 func checkIfBotReplied(botUsername *string, replies *[]*reddit.Comment) bool {
 	for _, reply := range *replies {
 		if reply.Author == *botUsername {
@@ -167,7 +156,7 @@ func checkIfBotReplied(botUsername *string, replies *[]*reddit.Comment) bool {
 	return false
 }
 
-// Recursively checks if the trigger was called on a comment or on it's replies and sends the calling comments to the passed channel
+// Recursively checks if the trigger was called on a comment or on its replies
 func triggerCheck(botUsername *string, triggerWords *[]string, comment *reddit.Comment, channel chan *map[string]string, wait *sync.WaitGroup, mutex *sync.Mutex) {
 	defer wait.Done()
 	queriedComment := make(map[string]string)
@@ -175,11 +164,11 @@ func triggerCheck(botUsername *string, triggerWords *[]string, comment *reddit.C
 	for _, trigger_word := range *triggerWords {
 		idx := strings.Index(commentBodyLowerCase, trigger_word)
 		if idx != -1 {
-			//Remove the leading or trailing whitespaces that come after the trigger word then return the question e.g
-			//"!sijui  how to eat cake  " to "how to eat cake"
+			// Remove the leading or trailing whitespaces that come after the trigger word then return the question e.g
+			// "!sijui How to eat cake " to "How to eat cake"
 			question := strings.TrimSpace(comment.Body[idx+len(trigger_word):])
 			if len(question) > 0 {
-				//First check if our bot has replied to the comment
+				// First check if our bot has replied to the comment
 				if !checkIfBotReplied(botUsername, &(comment.Replies.Comments)) {
 					queriedComment[comment.FullID] = question
 					channel <- &queriedComment
@@ -200,7 +189,7 @@ func triggerCheck(botUsername *string, triggerWords *[]string, comment *reddit.C
 // Check for the trigger word in the comments of a post
 func CheckTriggerWord(botUsername *string, triggerWords *[]string, postAndComments *reddit.PostAndComments, channel chan *map[string]string, wait *sync.WaitGroup, mutex *sync.Mutex) {
 	defer wait.Done()
-	//Convert the comment body to lower case then compare the result to our trigger words
+	// Convert the comment body to lower case then compare the result to our trigger words
 	for _, comment := range postAndComments.Comments {
 		mutex.Lock()
 		wait.Add(1)
@@ -210,13 +199,12 @@ func CheckTriggerWord(botUsername *string, triggerWords *[]string, postAndCommen
 	}
 }
 
-// Schedules go routines to check for the trigger word in the comments to posts
+// Schedules go routines to check for the trigger word in the comments to posts(many)
 func CheckTriggerWordScheduler(botUsername *string, triggerWords *[]string, postsAndComments *[]*reddit.PostAndComments) *map[string]string {
 	wait := sync.WaitGroup{}
 	mutex := sync.Mutex{}
 	channel := make(chan *map[string]string, len(*postsAndComments))
 	queriedComments := make(map[string]string, 10)
-	log.Println("Checking for trigger word in comments to the posts")
 	for _, postAndComments := range *postsAndComments {
 		go CheckTriggerWord(botUsername, triggerWords, postAndComments, channel, &wait, &mutex)
 		mutex.Lock()
@@ -236,22 +224,19 @@ func CheckTriggerWordScheduler(botUsername *string, triggerWords *[]string, post
 	return &queriedComments
 }
 
-//Replies to a comment
-func Reply(commentID *string, reply *string, comment_sevice *reddit.CommentService) {
-	comment_sevice.Submit(context.Background(), *commentID, *reply)
+func Reply(commentID *string, reply *string, commentService *reddit.CommentService) {
+	commentService.Submit(context.Background(), *commentID, *reply)
 }
 
-//Fetches the new posts of subreddit
 func FetchNewPosts(client *reddit.Client, subreddit *string) (*[]*reddit.Post, *reddit.Response, error) {
 	posts, resp, err := client.Subreddit.NewPosts(context.Background(), *subreddit, &reddit.ListOptions{Limit: 100})
 	return &posts, resp, err
 }
 
-//Fetches the top posts of the day of a subreddit
 func FetchTopPosts(client *reddit.Client, subreddit *string) (*[]*reddit.Post, *reddit.Response, error) {
 	posts, resp, err := client.Subreddit.TopPosts(context.Background(), *subreddit, &reddit.ListPostOptions{
 		ListOptions: reddit.ListOptions{Limit: 100},
-		Time: "day"})
+		Time:        "day"})
 	return &posts, resp, err
 }
 
@@ -261,18 +246,18 @@ func FetchTopPosts(client *reddit.Client, subreddit *string) (*[]*reddit.Post, *
 // 	client := SetUpClient(&credentials)
 // 	posts, _, err:= client.Subreddit.NewPosts(context.Background(), subreddit, &postOptions)
 // 	if err != nil{log.Fatal("Error while getting posts ", err)}
-// 	//log.Printf("ID %v", posts[0].FullID)
-// 	//log.Printf("Number Comments %v", posts[0].NumberOfComments)
+// 	// log.Printf("ID %v", posts[0].FullID)
+// 	// log.Printf("Number Comments %v", posts[0].NumberOfComments)
 // 	if !CheckIfPostsNumberOfCommentsJSONExists(&postAndNumberOfCommentsJsonPath){
 // 		CreatePostsNumberOfCommentsJSON(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath, &posts)
 // 	}
-// 	//Read from the stored json and map the values to the map
+// 	// Read from the stored json and map the values to the map
 // 	WriteJsonToPostsNumberOFCommentsMap(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath)
 // 	posts = FindPostsThatHaveHaveNewComments(&postAndNumberOfCommentsMap, &posts)
-// 	//Update the json with the changed posts
+// 	// Update the json with the changed posts
 // 	UpdateJSONWithPostsNumberOfCommentsMap(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath)
-// 	//CreatePostsNumberOfCommentsJSON(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath, &posts)
-// 	//posts, _, err := client.Subreddit.TopPosts(context.Background(), subreddit, &postOptions)
+// 	// CreatePostsNumberOfCommentsJSON(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath, &posts)
+// 	// posts, _, err := client.Subreddit.TopPosts(context.Background(), subreddit, &postOptions)
 // 	postService := client.Post
 // 	comment_service := client.Comment
 // 	postsAndComments := FindPostsCommentsScheduler(&posts, postService)
