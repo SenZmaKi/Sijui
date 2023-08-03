@@ -3,10 +3,11 @@ package crawler
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"os"
 	"strings"
 	"sync"
+
+	"shared"
 
 	"github.com/vartanbeno/go-reddit/v2/reddit"
 )
@@ -15,11 +16,11 @@ import (
 func SetRedditCredentials(credentialsPath string) *reddit.Credentials {
 	credentials := &reddit.Credentials{}
 	if file, err := os.Open(credentialsPath); err != nil {
-		log.Fatal("Error opening redditCredentials.json: ", err)
+		shared.LogError("Error opening redditCredentials.json", err)
 	} else {
 		defer file.Close()
 		if err := json.NewDecoder(file).Decode(credentials); err != nil {
-			log.Fatal("Error decoding redditCredentials.json into redditCredentials map: ", err)
+			shared.LogError("Error decoding redditCredentials.json into redditCredentials map", err)
 		}
 	}
 	return credentials
@@ -30,7 +31,7 @@ func SetRedditCredentials(credentialsPath string) *reddit.Credentials {
 func SetUpRedditClient(credentials *reddit.Credentials) *reddit.Client {
 	client, err := reddit.NewClient(*credentials)
 	if err != nil {
-		log.Fatal("Error while setting up client: ", err)
+		shared.LogError("Error while setting up reddit client", err)
 	}
 	return client
 
@@ -46,7 +47,7 @@ func CheckIfPostsNumberOfCommentsJSONExists(postAndNumberOfCommentsJsonPath stri
 
 func CreatePostsNumberOfCommentsJSON(postAndNumberOfCommentsJsonPath string) {
 	if file, err := os.Create(postAndNumberOfCommentsJsonPath); err != nil {
-		log.Fatal("Error creating the postsAndNumberOfComments.json file: ", err)
+		shared.LogError("Error creating the postsAndNumberOfComments.json file", err)
 	} else {
 		file.Close()
 	}
@@ -55,12 +56,12 @@ func CreatePostsNumberOfCommentsJSON(postAndNumberOfCommentsJsonPath string) {
 func UpdateJSONWithPostsNumberOfCommentsMap(postAndNumberOfCommentsMap *map[string]int, postAndNumberOfCommentsJsonPath string) {
 	// 0666 is a flag that allows for Read and Write permissions
 	if file, err := os.Create(postAndNumberOfCommentsJsonPath); err != nil {
-		log.Fatal("Error opening JSON in attempt to update JSON with the new(changed) post and number of comments read from map: ", err)
+		shared.LogError("Error opening JSON in attempt to update it with the new(changed) post and number of comments read from map: ", err)
 	} else {
 		defer file.Close()
 		encoder := json.NewEncoder(file)
 		if err := encoder.Encode(postAndNumberOfCommentsMap); err != nil {
-			log.Fatal("Error updating JSON with the new post and number of comments read from map: ", err)
+			shared.LogError("Error updating JSON with the new post and number of comments read from map: ", err)
 		}
 	}
 
@@ -72,12 +73,12 @@ func CreatePostsNumberOfCommentsMapFromJson(postAndNumberOfCommentsJsonPath stri
 		CreatePostsNumberOfCommentsJSON(postAndNumberOfCommentsJsonPath)
 	}
 	if file, err := os.Open(postAndNumberOfCommentsJsonPath); err != nil {
-		log.Fatal("Error while opening the JSON file in an attempt to write JSON to map: ", err)
+		shared.LogError("Error while opening the JSON file in an attempt to write JSON to map", err)
 	} else {
 		defer file.Close()
 		decoder := json.NewDecoder(file)
 		if err := decoder.Decode(&postsNumberOfCommentsMap); err != nil {
-			log.Fatal("Error writing values read from JSON to map: ", err)
+			shared.LogError("Error writing values read from JSON to map", err)
 		}
 	}
 	return &postsNumberOfCommentsMap
@@ -115,10 +116,11 @@ func FindPostsThatHaveHaveNewComments(postAndNumberOfCommentsMap *map[string]int
 // Finds and returns the all comments to a post
 func FindPostComments(post *reddit.Post, postService *reddit.PostService, channel chan *reddit.PostAndComments, wait *sync.WaitGroup) {
 	defer wait.Done()
-	postAndComments, _, err := postService.Get(context.Background(), post.ID)
-	if err != nil {
-		log.Fatal("Error while getting post comments: ", err)
+	anon := func() (interface{}, error) {
+		postAndComments, _, err := postService.Get(context.Background(), post.ID)
+		return postAndComments, err
 	}
+	postAndComments := shared.RetryOnErrorWrapper(anon, "Error while getting post comments").(*reddit.PostAndComments)
 	channel <- postAndComments
 }
 
@@ -224,7 +226,11 @@ func CheckTriggerWordScheduler(botUsername string, triggerWords *[]string, posts
 }
 
 func Reply(commentID string, reply string, commentService *reddit.CommentService) {
-	commentService.Submit(context.Background(), commentID, reply)
+	anon := func() (interface{}, error) {
+		garbage, _, err := commentService.Submit(context.Background(), commentID, reply)
+		return garbage, err
+	}
+	shared.RetryOnErrorWrapper(anon, "Error replying to comment")
 }
 
 func FetchNewPosts(client *reddit.Client, subreddit string) (*[]*reddit.Post, *reddit.Response, error) {
@@ -238,29 +244,3 @@ func FetchTopPosts(client *reddit.Client, subreddit string) (*[]*reddit.Post, *r
 		Time:        "day"})
 	return &posts, resp, err
 }
-
-// func main(){
-// 	var credentials reddit.Credentials
-// 	SetCredentials(&credentials, credentialsPath)
-// 	client := SetUpClient(&credentials)
-// 	posts, _, err:= client.Subreddit.NewPosts(context.Background(), subreddit, &postOptions)
-// 	if err != nil{log.Fatal("Error while getting posts ", err)}
-// 	// log.Printf("ID %v", posts[0].FullID)
-// 	// log.Printf("Number Comments %v", posts[0].NumberOfComments)
-// 	if !CheckIfPostsNumberOfCommentsJSONExists(&postAndNumberOfCommentsJsonPath){
-// 		CreatePostsNumberOfCommentsJSON(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath, &posts)
-// 	}
-// 	// Read from the stored json and map the values to the map
-// 	WriteJsonToPostsNumberOFCommentsMap(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath)
-// 	posts = FindPostsThatHaveHaveNewComments(&postAndNumberOfCommentsMap, &posts)
-// 	// Update the json with the changed posts
-// 	UpdateJSONWithPostsNumberOfCommentsMap(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath)
-// 	// CreatePostsNumberOfCommentsJSON(&postAndNumberOfCommentsMap, &postAndNumberOfCommentsJsonPath, &posts)
-// 	// posts, _, err := client.Subreddit.TopPosts(context.Background(), subreddit, &postOptions)
-// 	postService := client.Post
-// 	comment_service := client.Comment
-// 	postsAndComments := FindPostsCommentsScheduler(&posts, postService)
-// 	queriedComments := CheckTriggerWordScheduler(&triggerWords, postsAndComments)
-// 	TestReply(queriedComments, comment_service)
-
-// }

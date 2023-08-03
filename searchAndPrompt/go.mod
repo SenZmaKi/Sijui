@@ -1,4 +1,4 @@
-module searchAndPrompt	
+module searchAndPrompt
 
 go 1.20
 
@@ -6,6 +6,8 @@ require (
 	github.com/sashabaranov/go-openai v1.9.0
 	google.golang.org/api v0.119.0
 )
+
+require shared v0.0.0
 
 require (
 	cloud.google.com/go/compute v1.19.0 // indirect
@@ -27,3 +29,5 @@ require (
 	google.golang.org/grpc v1.54.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 )
+
+replace shared => ../shared

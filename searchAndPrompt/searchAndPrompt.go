@@ -3,8 +3,9 @@ package searchAndPrompt
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"os"
+
+	"shared"
 
 	"github.com/sashabaranov/go-openai"
 	"google.golang.org/api/customsearch/v1"
@@ -20,22 +21,21 @@ type GoogleResult struct {
 func SetUpGoogleCredentials(credentialsPath string) *map[string]string {
 	googleCredentials := make(map[string]string)
 	if file, err := os.Open(credentialsPath); err != nil {
-		log.Fatal("Error opening googleCredentials.json ", err)
+		shared.LogError("Error opening googleCredentials.json", err)
 	} else {
 		decoder := json.NewDecoder(file)
 		if err := decoder.Decode(&googleCredentials); err != nil {
-			log.Fatal("Error decoding googleCredentials.json into googleCredentials map ", err)
+			shared.LogError("Error decoding googleCredentials.json into googleCredentials map", err)
 		}
 	}
 	return &googleCredentials
 }
 
 func SetUpGoogleSearchService(credentials *map[string]string) *customsearch.CseListCall {
-	service, err := customsearch.NewService(context.Background(), option.WithAPIKey((*credentials)["CustomSearchAPIKey"]))
-	if err != nil {
-		log.Fatal("Error creating new custom search service ", err)
-		return &customsearch.CseListCall{}
+	anon := func() (interface{}, error) {
+		return customsearch.NewService(context.Background(), option.WithAPIKey((*credentials)["CustomSearchAPIKey"]))
 	}
+	service := shared.RetryOnErrorWrapper(anon, "Error creating new custom search service").(*customsearch.Service)
 	return service.Cse.List().Cx((*credentials)["SearchEngineID"])
 }
 
@@ -49,7 +49,6 @@ func GoogleSearch(query string, searchService *customsearch.CseListCall) (*[]Goo
 			googleResults[idx].Snippet = resultItems[idx].Snippet
 			googleResults[idx].Link = resultItems[idx].Link
 		}
-
 	}
 	return &googleResults, err
 }
@@ -57,11 +56,11 @@ func GoogleSearch(query string, searchService *customsearch.CseListCall) (*[]Goo
 func SetUpOpenAICredentials(credentialsPath string) *map[string]string {
 	openAICredentials := make(map[string]string)
 	if file, err := os.Open(credentialsPath); err != nil {
-		log.Fatal("Error opening openAICredentials.json")
+		shared.LogError("Error opening openAICredentials.json", err)
 	} else {
 		decoder := json.NewDecoder(file)
 		if err := decoder.Decode(&openAICredentials); err != nil {
-			log.Fatal("Error decoding openAICredentials.json into openAICredentials map ", err)
+			shared.LogError("Error decoding openAICredentials.json into openAICredentials map", err)
 		}
 	}
 	return &openAICredentials
@@ -89,21 +88,3 @@ func PromptGpt(client *openai.Client, prompt string) (string, error) {
 	}
 	return response.Choices[0].Message.Content, err
 }
-
-// func main(){
-
-// client := SetUpOpenAIClient(SetUpGoogleCredentials(&openAICredentialsPath))
-// prompt := "Korewa jiyuu da"
-// answer := PromptGpt(client, &prompt)
-// print(*answer)
-
-// googleCredentials := SetUpGoogleCredentials(&googleCredentialsPath)
-// searchService := SetUpGoogleSearchService(googleCredentials)
-// query := "How to shit"
-// googleResults := GoogleSearch(&query, searchService)
-// for _, googleResult := range *googleResults{
-// 	println("Title: ", googleResult.Title)
-// 	println("Snippet: ", googleResult.Snippet)
-// 	println("Link: ", googleResult.Link)
-// }
-//}
