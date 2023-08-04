@@ -142,8 +142,8 @@ func fetchQueriedComments() *map[string]string {
 }
 
 func replyToQueriedComments(queriedComments *map[string]string) {
+	replyCount := 0
 	for commentID, question := range *queriedComments {
-		replyCount := 0
 		if replyCount >= openAIRPMLimit {
 			shared.LogInfo(fmt.Sprintf("Sleeping for %v cause I've reached openAI's RPM limit.. .", openAISleepDelay))
 			time.Sleep(openAISleepDelay)
