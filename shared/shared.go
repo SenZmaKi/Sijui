@@ -8,10 +8,9 @@ import (
 
 var (
 	logFilePath = "../sijui.log"
-	_           = SetUpLog(logFilePath)
 )
 
-func SetUpLog(logFilePath string) bool {
+func SetUpLoggingToFile() bool {
 	file, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Println("Error opening the log file:", err)
