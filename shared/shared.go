@@ -33,7 +33,8 @@ func LogInfo(info string) {
 
 func clearLogFile() {
 	fileInfo, _ := os.Stat(logFilePath)
-	if fileInfo.Size() > 1000000 {
+				// 1 GB	
+	if fileInfo.Size() > 1000000 * 1000 {
 		if err := os.Truncate(logFilePath, 0); err != nil {
 			LogError("Error while clearing log file", err)
 		}
