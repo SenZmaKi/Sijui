@@ -1,5 +1,7 @@
 # Sijui-bot
 
+<img src=https://github.com/SenZmaKi/Sijui/assets/90490506/ecac1d1a-a7da-40ae-b979-750816da2740 height=200px widht=100px>
+
 **Sijui** is a reddit bot that returns answers to questions by making a Google search and prompting ChatGpt.
 
 - The bot is currently only available in [r/Kenya](https://reddit.com/r/Kenya).
