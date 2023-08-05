@@ -95,7 +95,7 @@ func createBotReply(botName string, googleResults *[]searchAndPrompt.GoogleResul
 		resultString += fmt.Sprintf("[%s](%s): %s\n\n", result.Title, result.Link, result.Snippet)
 	}
 	botReply := fmt.Sprintf("%s here! I've found the following information that might help answer your question:\n\n%s\n\nChat GPT says:\n\n%s\n\nI hope this helps! Let me know if you have any other questions.", botName, resultString, gptResponse)
-	botReply += fmt.Sprintf("\n\n ^(*Beep beep boop!* This is a bot-generated repsonse, or is it? [Creator](%s) | [Code](%s).)", creatorRedditUrl, githubRepositoryUrl)
+	botReply += fmt.Sprintf("\n\n ^(*Beep beep boop!* This is a bot-generated response, or is it? [Creator](%s) | [Code](%s).)", creatorRedditUrl, githubRepositoryUrl)
 	return botReply
 }
 
