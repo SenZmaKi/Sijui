@@ -1,3 +1,6 @@
+## !!! NOTICE !!!
+Sijui-bot is currently down, I ran out of Google Cloud Free Tier lol.
+
 # Sijui-bot
 
 <img src=https://github.com/SenZmaKi/Sijui/assets/90490506/ecac1d1a-a7da-40ae-b979-750816da2740 height=200px widht=100px>
