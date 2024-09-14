@@ -1,4 +1,4 @@
-## !!! NOTICE !!!
+# !!! NOTICE !!!
 Sijui-bot is currently down, I ran out of Google Cloud Free Tier lol.
 
 # Sijui-bot
